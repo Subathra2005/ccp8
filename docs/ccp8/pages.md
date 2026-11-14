@@ -1,55 +1,28 @@
-# Pages and components
+# Complete page and component guide
 
-Source revision: `bd23fa0571397697274d10f2ee6b98ee5f71ad10`.
+One React page in App.tsx, normally `http://localhost:5173/`. Upload, marking-scheme review and batch results are states on that page, not URL routes. No login/dashboard/history page exists.
 
-## Complete page inventory
-
-There is one application screen, normally opened at `http://localhost:5173/`. No React Router, separate page files, links to other app screens, or authenticated routes exist. Other URL handling is the dev/hosting server's concern, not an application route definition. `index.html` supplies title `frontend`, favicon `/favicon.svg`, root div, and module `/src/main.tsx`. `main.tsx` mounts App inside React StrictMode and imports Bootstrap CSS plus `index.css`.
-
-## App.tsx: persistent shell and state
-
-The blue navbar displays **AI Answer Evaluator**. The centered heading is **Automated Answer Evaluation**, followed by text asking for a handwritten answer sheet to evaluate against the provided key. A responsive Bootstrap `col-lg-9` contains all content.
-
-App owns `result: FinalEvaluation | null`, `loading: boolean`, and `error: string | null`, initially null/false/null. The upload component owns selected-file state. No localStorage, sessionStorage, database, context store, or navigation state persists results.
-
-| UI state | What appears | Actions and transitions |
+| State | Contents | Action |
 |---|---|---|
-| Initial | Shell, upload card; submit disabled | Select PDF to enable evaluation |
-| Selected file | Filename and size to 2 decimal places in MB | Click Evaluate Answer Sheet |
-| Loading | Upload remains, inputs disabled, button spinner/text; additional centered spinner and explanatory text | Await one POST; no cancel/progress polling |
-| Error | Upload and red **Evaluation Failed** alert with error text | Retry; error clears on next request |
-| Success | Score card, Question-wise Evaluation heading, Evaluate Another button, one result card per question | Evaluate Another clears result/error and remounts fresh upload |
+| Initial | AI Answer Evaluator navbar, one-key/multiple-sheets heading, local processing guidance, key uploader | Upload one PDF and Read answer key |
+| Extracting | Disabled uploader, spinner and polled job message | Wait; no cancellation or ETA |
+| Review | Draft title/fixed total, question/max/split-up/page table, extraction warnings, editable scheme JSON, expandable page transcriptions | Correct scheme; checkbox confirms key answers, total, split-ups, diagrams, choices and best-N policy |
+| Approving | Disabled review controls | Backend validates and locks rubric |
+| Ready | Locked scheme summary, multiple student PDF uploader | Select 1–10 PDFs and Evaluate answer sheets |
+| Grading | Disabled controls and current job/sheet message | Poll job; process sequentially |
+| Results | One article per filename, score summary, per-question results or independent file error | Upload another batch using the same locked key |
+| Error | Alert with server/network/JSON/model validation message | Correct/retry where possible |
+| Start different key | Button after draft creation; disabled while loading | Clear current client state and begin again |
 
-Request start sets loading true, clears old result and error, builds FormData with `answerSheet`, and posts to hardcoded `http://localhost:5001/api/evaluate`. App parses JSON before checking HTTP status. A non-OK response throws its `message` or `Evaluation failed.`. Success sets `data.data` without runtime schema checks. Catch logs and displays Error.message or `Something went wrong.`; finally clears loading. There is no check of the response's `success` boolean independent of HTTP status. Reset does not call the backend.
+## Components
 
-## FileUpload.tsx
+- `FileUpload.tsx`: reusable key or multi-sheet uploader. Accept PDF MIME, 20 MiB, single or ≤10 files. Clear stored selection on invalid replacement (fixes the former stale-file bug). List filename and size, disable during work.
+- `App.tsx`: own draft/editor/approval/results/loading/progress/error state. No storage or router. Scheme edits reset confirmation; server approval is required. Start different key clears client state; server session expires later.
+- `ScoreCard.tsx`: total / fixed maximum, percentage and progress. Prominent provisional-result warning when review is required; show all transcription warnings.
+- `QuestionResult.tsx`: question marks/status, counted/excluded-choice flag, review badge, explanation, criterion table (awarded/max and why), method assessment, final answer assessment, diagram assessment. Expand source-page transcription and confidence.
+- `api.ts`: configurable API base, JSON error handling, queued/running/completed/failed polling every two seconds. No durable browser job recovery after refresh.
+- `main.tsx`: React StrictMode mount; Bootstrap and index.css imports.
 
-Props: `onEvaluate(file: File): void`, `loading: boolean`.
+Global CSS includes pre-wrapped evidence and top-aligned table cells. Tables scroll horizontally inside their own responsive container. Existing App.css and starter artwork are unused by TSX. index.html still provides root div, favicon and entry module. There is no PDF annotation/editor, editable awarded marks, export or formal review-submission screen. Mathematical transcription is displayed as plain text/LaTeX source, not a symbolic-math renderer.
 
-Card heading: **Upload Student Answer Sheet**. Native single-file input has `accept="application/pdf"`, Bootstrap styling, and disables while loading. Selection validates `selectedFile.type === 'application/pdf'`; rejection alerts `Please select a PDF file.` and clears the input. No selection clears state. Valid selection displays name and `(size / 1024 / 1024).toFixed(2)` MB. There is no frontend file-size limit, drag/drop, preview, multipage selector, or answer-key selector.
-
-Submit alerts `Please select an answer sheet.` if called without a stored file, otherwise invokes onEvaluate. The button is disabled without a file or while loading; labels are **Evaluate Answer Sheet** and **Evaluating Answer Sheet...**.
-
-Known edge case: selecting an invalid file after a valid one clears the input but does not clear the previous stored File. A later submit can still use the prior valid PDF. Treat this as current behavior, not a desired contract.
-
-## ScoreCard.tsx
-
-Prop: `result: FinalEvaluation`. Shows **Evaluation Result**, subtitle **AI-assisted handwritten answer evaluation**, total / maximum, percentage, and a progress bar whose inline width is `${percentage}%`. When manualReviewRequired is true, shows **Manual Review Recommended** with text about low confidence or unreadable handwriting. It has no editable marks, review submission, download, or export action.
-
-## QuestionResult.tsx
-
-Prop: `question: QuestionEvaluation`. Shows question number, uppercase status badge, obtained / maximum marks, **Student's Answer**, **AI Evaluation** reason, and confidence. Missing/empty studentAnswer displays **No readable answer detected.**. App uses questionNumber as React key; duplicates from unvalidated model output can cause duplicate keys.
-
-| Status | Bootstrap badge color | Icon |
-|---|---|---|
-| correct | success | ✓ |
-| partial | warning | ◐ |
-| incorrect | danger | ✕ |
-| unreadable | secondary | ? |
-| unexpected | secondary | empty |
-
-There is no detailed PDF viewer, OCR correction screen, rubric editor, human reviewer page, login, dashboard, or evaluation history page.
-
-## Styling and assets
-
-`main.tsx` imports `bootstrap/dist/css/bootstrap.min.css` and `index.css`. Global CSS removes body margin, sets a system font, removes card borders, and animates progress width for 0.6s. App does not import App.css: its template CSS is inactive in the current import graph. The hero/react/vite assets and public icons sprite are not referenced by the inspected TSX application. The favicon is referenced by index.html.
+The current review editor is JSON plus a readable summary table. Teachers compare it with their original PDF externally. It does not yet offer a dedicated form editor or embedded PDF viewer. Do not describe this as automatic approval or a polished one-click review flow.

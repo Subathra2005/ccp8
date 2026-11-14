@@ -1,147 +1,79 @@
-import type {
-  QuestionEvaluation
-} from "../types/evaluation";
-
-interface QuestionResultProps {
+import type { QuestionEvaluation } from "../types/evaluation";
+export default function QuestionResult({
+  question: q,
+}: {
   question: QuestionEvaluation;
-}
-
-function QuestionResult({
-  question
-}: QuestionResultProps) {
-
-  const getStatusClass = () => {
-
-    switch (question.status) {
-
-      case "correct":
-        return "success";
-
-      case "partial":
-        return "warning";
-
-      case "incorrect":
-        return "danger";
-
-      case "unreadable":
-        return "secondary";
-
-      default:
-        return "secondary";
-    }
-  };
-
-  const getStatusIcon = () => {
-
-    switch (question.status) {
-
-      case "correct":
-        return "✓";
-
-      case "partial":
-        return "◐";
-
-      case "incorrect":
-        return "✕";
-
-      case "unreadable":
-        return "?";
-
-      default:
-        return "";
-    }
-  };
-
+}) {
   return (
-    <div className="card shadow-sm mb-3">
-
+    <section className="card mb-3 shadow-sm">
       <div className="card-body p-4">
-
-        <div className="d-flex justify-content-between align-items-start">
-
-          <div>
-
-            <h5 className="mb-1">
-              Question {question.questionNumber}
-            </h5>
-
-            <span
-              className={`badge text-bg-${getStatusClass()}`}
-            >
-              {getStatusIcon()}{" "}
-              {question.status.toUpperCase()}
+        <div className="d-flex justify-content-between gap-3">
+          <h3 className="h5">Question {q.questionNumber}</h3>
+          <strong>
+            {q.obtainedMarks} / {q.maximumMarks}
+          </strong>
+        </div>
+        <p>
+          <span
+            className={`badge text-bg-${q.status === "correct" ? "success" : q.status === "incorrect" ? "danger" : "secondary"}`}
+          >
+            {q.status}
+          </span>{" "}
+          {!q.counted && (
+            <span className="badge text-bg-light ms-2">
+              Not counted: internal choice
             </span>
-
-          </div>
-
-          <div className="text-end">
-
-            <div className="fw-bold fs-5">
-              {question.obtainedMarks}
-              {" "}/{" "}
-              {question.maximumMarks}
-            </div>
-
-            <small className="text-muted">
-              Marks
-            </small>
-
-          </div>
-
+          )}{" "}
+          {q.manualReviewRequired && (
+            <span className="badge text-bg-warning ms-2">Teacher review</span>
+          )}
+        </p>
+        <p>{q.reason}</p>
+        <div className="table-responsive">
+          <table className="table">
+            <caption>Marking split-up for question {q.questionNumber}</caption>
+            <thead>
+              <tr>
+                <th>Criterion / subpart</th>
+                <th>Marks</th>
+                <th>Why awarded or deducted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {q.criteria.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    {c.id}: {c.description}
+                  </td>
+                  <td className="text-nowrap">
+                    {c.obtainedMarks} / {c.maximumMarks}
+                  </td>
+                  <td>{c.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-
-        <hr />
-
-        <div className="mb-3">
-
-          <h6>
-            Student's Answer
-          </h6>
-
-          <div className="bg-light rounded p-3">
-
-            {question.studentAnswer ? (
-              question.studentAnswer
-            ) : (
-              <span className="text-muted">
-                No readable answer detected.
-              </span>
-            )}
-
-          </div>
-
-        </div>
-
-        <div className="mb-3">
-
-          <h6>
-            AI Evaluation
-          </h6>
-
-          <p className="mb-0">
-            {question.reason}
-          </p>
-
-        </div>
-
-        <div>
-
-          <small className="text-muted">
-
-            Confidence:{" "}
-
-            <span className="fw-semibold">
-              {question.confidence}
-            </span>
-
-          </small>
-
-        </div>
-
+        <p>
+          <strong>Method:</strong> {q.methodAssessment}
+        </p>
+        <p>
+          <strong>Final answer:</strong> {q.finalAnswerAssessment}
+        </p>
+        <p>
+          <strong>Diagram:</strong> {q.diagramAssessment}
+        </p>
+        <details>
+          <summary>
+            Read student evidence · pages{" "}
+            {q.sourcePages.join(", ") || "unmatched"} · {q.confidence}{" "}
+            confidence
+          </summary>
+          <pre className="evidence mt-3">
+            {q.studentAnswer || "No matched transcription."}
+          </pre>
+        </details>
       </div>
-
-    </div>
+    </section>
   );
 }
-
-export default QuestionResult;

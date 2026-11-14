@@ -1,113 +1,79 @@
-# HTTP API contracts
+# HTTP contracts
 
-Source revision: `bd23fa0571397697274d10f2ee6b98ee5f71ad10`.
+This reference accompanies the handwritten-PDF implementation (14 November 2026). Base URL defaults to `http://localhost:5001/api`. No application auth exists. Session/job ids are random UUIDs and must be kept private in this local workflow.
 
-## Endpoint inventory
+## Complete endpoint inventory
 
-| Direction | Method and URL | Implementation | Purpose |
+| Method | Path | Request | Response |
 |---|---|---|---|
-| Client → backend | `GET http://localhost:5001/api/health` | `backend/src/server.ts` | Process health response; does not check Ollama or the answer key |
-| Client → backend | `POST http://localhost:5001/api/evaluate` | `evaluationRoutes.ts` → `evaluationController.ts` | Accept a PDF, call the model service, calculate scores |
-| Backend → Ollama | `POST ${OLLAMA_BASE_URL}/api/generate` | `backend/src/services/geminiService.ts` | Request a non-streaming JSON generation |
+| GET | `/api/health` | None | 200 `{success:true,message,model}`; process check only |
+| POST | `/api/schemes/extract` | Multipart single `answerKey` PDF | 202 `{success:true,jobId}` |
+| GET | `/api/jobs/:id` | Job UUID | 200 `{success:true,id,status,message,data?,expires}`; 404 if expired/missing |
+| POST | `/api/schemes/:id/approve` | JSON `{rubric,confirmed:true}` | 200 `{success:true,sessionId,rubric}` |
+| POST | `/api/evaluate` | Multipart `sessionId` and 1–10 `answerSheets` PDFs | 202 `{success:true,jobId}` |
+| POST (outbound) | `${OLLAMA_BASE_URL}/api/chat` | JSON with schema and optional images | Non-streaming Ollama `message.content`, parsed as JSON |
 
-These are all explicit application HTTP handlers and outbound calls in the inspected source. Vite serves the frontend and static assets; those are not additional custom API handlers. Express/CORS provide framework behavior such as preflight and GET-associated HEAD handling. No custom list, delete, login, answer-key upload, history, export, or review-update endpoint exists. Unknown routes fall through Express's default 404 behavior; there is no custom JSON 404 handler.
+No fixed answer-key file, history/list/delete/export/review-update endpoint, separate provider upload, or Gemini call exists. Framework CORS/preflight, GET-associated HEAD and default 404 are not custom application routes.
 
-## Shared transport rules
+## Upload and transport
 
-Backend port: `process.env.PORT || 5001`. CORS response configuration allows browser origin `http://localhost:5173`; this is not authentication or a restriction on non-browser callers. `express.json()` is installed, but evaluation requires multipart rather than a JSON body. No application auth headers, cookies, or tokens are used. No explicit request timeout, retry, cancellation, rate limit, or schema validation library is configured.
+Multer writes temporary files to the OS temp directory, accepts PDF MIME, limits each file to 20 MiB, limits ten files, two text fields, and 1 KiB per multipart field. Poppler subsequently checks PDF bytes (`%PDF-`) and 1–30 pages. Frontend applies corresponding input limits. Upload size errors are 413; other Multer rejections are 400. The key is moved into its session directory; student files are deleted after processing.
 
-## GET /api/health
+Backend JSON body limit is 200 KiB. Allow frontend origin via FRONTEND_ORIGIN (default `http://localhost:5173`). Frontend API base is VITE_API_BASE_URL (default `http://localhost:5001/api`). Let the multipart sender set Content-Type/boundary.
 
-No request body or parameters. HTTP 200 JSON:
+## Job lifecycle
 
-```json
-{"success":true,"message":"Automated Evaluation API is running"}
-```
+`status` is queued, running, completed or failed. Poll every two seconds. `message` describes the current stage/sheet. All model work goes through one process-wide sequential queue, with at most five pending/running jobs. Completed/failed jobs expire after two hours; active jobs do not expire mid-run. There is no durable database or cancellation endpoint.
 
-The frontend does not call this endpoint. Use it to isolate backend availability from model or upload issues.
-
-## POST /api/evaluate
-
-Send `multipart/form-data` with exactly one file field named `answerSheet`. Let the browser or curl set the multipart boundary. Multer saves the file to relative `uploads/` and limits it to `20 * 1024 * 1024` bytes (20 MiB). Its filter accepts only the supplied MIME value `application/pdf`; no PDF magic-byte or content validation is implemented. The controller repeats the MIME check.
-
-```bash
-curl http://localhost:5001/api/health
-curl -X POST http://localhost:5001/api/evaluate \
-  -F 'answerSheet=@/absolute/path/student.pdf;type=application/pdf'
-```
-
-No query parameters, path parameters, student identifiers, rubric fields, or additional text fields are consumed. The official key always comes from `backend/answer_key.txt` via the backend working directory.
-
-HTTP 200 response shape (illustrative values, not an observed model result):
+Completed extraction `data`:
 
 ```json
 {
-  "success": true,
-  "message": "Answer sheet evaluated successfully.",
-  "data": {
-    "totalMarks": 1,
-    "maximumMarks": 2,
-    "percentage": 50,
-    "questions": [{
-      "questionNumber": 1,
-      "maximumMarks": 2,
-      "obtainedMarks": 1,
-      "status": "partial",
-      "confidence": "medium",
-      "studentAnswer": "Example transcription",
-      "reason": "Example explanation"
-    }],
-    "manualReviewRequired": false
-  }
+  "sessionId": "uuid",
+  "rubric": {"title":"Exam","totalMarks":40,"instructions":"...","questions":[],"choiceGroups":[]},
+  "warnings": ["Resolve ambiguous marks before approval"],
+  "evidence": [{"page":1,"text":"Transcription","questions":[],"warnings":[]}]
 }
 ```
 
-### Data contract
+This abbreviated example shows the envelope, not an approvable rubric: questions cannot be empty. Failed jobs expose the error in message; HTTP GET remains 200 because the job was retrieved successfully.
 
-| Field | Declared type | Meaning |
-|---|---|---|
-| `questionNumber` | number | Question identifier supplied by the model |
-| `maximumMarks` | number | Per-question maximum supplied by the model |
-| `obtainedMarks` | number | Model mark, converted and clamped by backend |
-| `status` | `correct`, `partial`, `incorrect`, `unreadable` | Question outcome |
-| `confidence` | `high`, `medium`, `low` | Model confidence |
-| `studentAnswer` | string | Model-provided transcription; current PDF integration cannot substantiate it |
-| `reason` | string | Model explanation |
-| `totalMarks` | number | Sum of clamped marks |
-| `maximumMarks` in data | number | Sum of converted maxima |
-| `percentage` | number | Total / maximum × 100, rounded to two decimals; 0 when maximum is 0 |
-| `manualReviewRequired` | boolean | True if any status is unreadable or confidence is low |
+## Marking-scheme schema
 
-The unions and field types are TypeScript declarations, not full runtime validation. Only the presence of an array `questions` is checked by the service; scoring does limited numeric checks. The frontend `EvaluationResponse` interface requires `data`, although actual error envelopes omit it; App does not use that interface to validate responses.
-
-### Errors as implemented
-
-| Status | Trigger | Message or behavior |
-|---|---|---|
-| 400 | Controller receives no file | `Please upload a PDF answer sheet.` |
-| 400 | Controller MIME fallback rejects file | `Only PDF files are allowed.` |
-| 500 | Multer rejects non-PDF before controller | `Only PDF files are allowed.` via global handler |
-| 500 | Multer limit/unexpected field/other middleware error | Middleware error message via global handler; not mapped to 413 or 400 |
-| 500 | Answer key is whitespace/empty | `Answer key is empty.` |
-| 500 | Answer key read, network, model, parsing, or scoring fails | Error's message, or `Something went wrong during evaluation.` |
-
-Error envelope: `{"success":false,"message":"..."}`. Global handler fallback: `Internal server error`. Controller cleanup attempts `fs.unlink` in `finally` after recording a path, including its own validation and evaluation failures. Middleware errors occur before controller execution, so do not attribute their cleanup guarantees to that finally block. Cleanup errors are logged without changing the response.
-
-## Outbound Ollama POST /api/generate
-
-Configuration is read into module constants:
-
-| Variable | Default |
+| Field | Meaning |
 |---|---|
-| `OLLAMA_BASE_URL` | `http://localhost:11434` |
-| `OLLAMA_MODEL` | `qwen2.5:3b` |
+| `title`, `instructions` | Strings; preserve exam instructions and choice policy |
+| `totalMarks` | Positive finite paper maximum from teacher key |
+| `questions` | 1–200 unique question ids |
+| `questions[].id` | String matching main student label, e.g. `20`; use `20.A`/`20.B` for whole OR alternatives under number 20 |
+| `question`, `expectedAnswer` | Question wording if available; non-empty expected answer including working |
+| `maximumMarks` | Positive finite per-question maximum |
+| `criteria` | Non-empty `{id,description,maximumMarks}` list with unique ids, non-empty descriptions, maxima summing exactly to question maximum (within numeric tolerance) |
+| `keyPages` | Non-empty 1-based integer page references within uploaded key |
+| `diagramRequired` | Boolean |
+| `choiceGroups` | `{id,questionIds,choose}` list; unique ids, known disjoint question ids, equal maxima, 1 ≤ choose < alternatives |
 
-Header: `Content-Type: application/json`. Body:
+Required question maxima plus choose-counted alternatives must sum to totalMarks. No automatic normalisation or rescaling. Each maximum ≤ 10,000; scheme JSON ≤ 100,000 characters. Approval validates again against actual key page count. Approval requires confirmed=true and cannot replace an already approved rubric. A busy session returns 409 on approval; other approval validation failures return 400. Teacher must resolve compound/nested/unequal choices into supported alternatives first.
 
-```json
-{"model":"qwen2.5:3b","prompt":"<evaluation instructions plus official answer key>","format":"json","stream":false}
-```
+## Student batch response
 
-The prompt requests semantic grading, partial credit, no spelling penalty unless meaning changes, unreadable status, all key questions, no invented answers, no marks above maxima, and no total calculation. It requests `{"questions":[...]}`. These are instructions, not enforced correctness checks. The PDF is absent from the payload; there is no file upload, base64 content, OCR text, image array, or document extraction step.
+Completed batch `data` is `{results: SheetResult[], rubric}`. A SheetResult is either `{filename,success:true,data:FinalEvaluation}` or `{filename,success:false,message}`. Every accepted file gets its own outcome; invalid PDF contents can fail one file without failing the batch.
 
-Expect an Ollama response object containing a string `response`; JSON.parse that string into the question object. Other Ollama response fields are ignored. On non-OK status throw `Ollama request failed: <response text>`. Missing/empty response throws `Ollama returned an empty response`; parse failure throws `Ollama returned invalid JSON`; missing/non-array questions throws `Invalid evaluation structure returned by Ollama`. Failed file access throws `Uploaded PDF file was not found.`. Do not treat this as a Gemini REST endpoint.
+FinalEvaluation:
+
+- `totalMarks`: backend sum of counted criterion awards.
+- `maximumMarks`: immutable approved rubric.totalMarks.
+- `percentage`: ratio rounded to two decimals.
+- `manualReviewRequired`, `warnings`, `questions`.
+
+Each question returns questionNumber (string), maximumMarks, obtainedMarks, status (`correct|partial|incorrect|unreadable|unanswered`), confidence, studentAnswer, reason, methodAssessment, finalAnswerAssessment, diagramAssessment, criteria, sourcePages, counted and manualReviewRequired. Criteria include id, description, approved maximumMarks, obtainedMarks and a specific reason. Excluded choices remain visible with counted=false. Missing/failed questions have provisional zero marks and a review flag.
+
+## Outbound Ollama contract
+
+Defaults: OLLAMA_BASE_URL=`http://localhost:11434`, OLLAMA_MODEL=`qwen3-vl:2b-instruct`. Native fetch calls `/api/chat` with JSON header, stream=false, JSON-schema format, keep_alive=`5m`, options `{temperature:0,seed:42,num_ctx:8192,num_predict:5000}`, and a 10-minute per-request timeout. Each request contains system instructions treating document contents as untrusted evidence and a user prompt. Vision requests include base64 PNGs in the user message's `images` array: one for page transcription, at most two for grading (first matched student page then first referenced key page). Index/rubric extraction uses transcribed text without images.
+
+Non-OK responses, empty message content, JSON parse failures and done_reason=length fail explicitly. Typed interfaces do not replace runtime checks: service validates transcriptions and awards; approval validates the complete rubric. Deterministic sampling settings reduce variability but are not a guarantee of identical AI awards or correctness. Maxima/totals remain fixed independently.
+
+## Other failures
+
+Missing uploads, expired/unapproved/busy sessions, malformed PDFs, missing Poppler and queue rejection produce a JSON error envelope `{success:false,message}` (usually 400 in controllers). Grading job-level model failures fail a sheet or produce provisional failed-question results depending on the stage. Global unexpected errors return 500. Successful extraction does not imply approval, and process health does not check Poppler/Ollama availability.

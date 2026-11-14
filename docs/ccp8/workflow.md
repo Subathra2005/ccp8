@@ -1,79 +1,51 @@
-# Workflow and development
+# Evaluation and development workflow
 
-Source revision: `bd23fa0571397697274d10f2ee6b98ee5f71ad10`.
+## Setup
 
-## Local setup
+Follow the root README. Node 22.12+, Poppler (`pdfinfo`, `pdftoppm`) and an active Ollama installation with qwen3-vl:2b-instruct are required. The default is deliberately a small vision model for the user's M1 7-core GPU / 8 GB shared memory; no live hardware performance benchmark is claimed. Start backend and frontend separately. No Google API key is needed. The old fixed text key and Google SDK are no longer used.
 
-Use a modern Node runtime compatible with the locked Vite/tooling dependencies and native fetch in the backend. The repository declares no Node engines or runtime pin. Verify the lockfile engine requirements rather than inventing a project-mandated Node version.
+## Key to result
 
-Run commands separately in the indicated directories. Install from lockfiles with `npm ci` where package registry access is available.
+1. Upload single teacher answerKey PDF. Check header/pages with Poppler, create UUID session and retain key in an OS temporary directory.
+2. Queue extraction globally. Render one page at a time to PNG with maximum dimension 1800 px; send actual base64 image to Ollama /api/chat. Remove each rendered PNG after reading it. Preserve text, equations, diagram descriptions, page numbers and question labels.
+3. Index transcribed key pages to identify the paper total, instructions, questions, complete OR alternatives and page references. Extract one question's expected answer/criterion split-ups per subsequent request rather than demanding an enormous rubric JSON response.
+4. Return editable draft, page transcriptions and warnings. Total/split-up disagreement is surfaced, never rescaled. Missing/ambiguous marks use 0 so approval fails until corrected.
+5. Teacher checks key content, all maxima, criteria, references and internal choices, then approves. Backend validates positive finite marks, criterion sums, choice structure and paper sum, stores a deep copy and refuses changes to that scheme.
+6. Upload 1–10 answerSheets with the session UUID. Queue the batch. Process files sequentially and maintain independent failures.
+7. Transcribe each student page visually, including equations and diagram structure. Ignore prior teacher marks/ticks/annotations. Match by main question id; `20.A` and `20.B` alternatives can use source label `20`. Warn for unmatched labels.
+8. For each question, assemble all matching page observations and revisit the first matching student page plus first key page as actual images. Ask for exact criterion awards/reasons and separate mathematical method, final-answer and diagram assessments. Accept correct alternative methods after checking their validity. Do not award method marks solely for a correct final answer.
+9. Validate all criterion ids/finite bounded awards/explanations. Reject malformed question output into a provisional zero/review result; missing question evidence is also provisional and flagged. Diagram and continuation-page cases are flagged because only the first pair is visually compared together; other pages are separately transcribed evidence.
+10. Recalculate all maxima and totals from approved rubric in backend code. Select best N choices (stable earlier-key tie break). Keep excluded alternatives visible. Return total/fixed maximum and detailed results.
+11. Delete each student PDF after processing. Expire idle sessions/key directories and completed jobs after two hours; running work stays alive. Backend restart loses in-memory schemes/results. Abnormal termination can leave OS temp files.
 
-| Working directory | Command | Purpose |
-|---|---|---|
-| backend | `npm ci` | Install backend locked dependencies |
-| backend | `npm run dev` | ts-node-dev respawn with transpile-only |
-| backend | `npm run build` | TypeScript compilation to dist |
-| backend | `npm start` | Execute dist/server.js after build |
-| frontend | `npm ci` | Install frontend locked dependencies |
-| frontend | `npm run dev` | Vite development server |
-| frontend | `npm run build` | tsc -b followed by Vite production build |
-| frontend | `npm run lint` | ESLint |
-| frontend | `npm run preview` | Preview built frontend; preview origin may differ from allowed CORS origin |
+## Scoring rules
 
-Create a local backend `.env` if overriding defaults:
+`validateRubric` enforces uniqueness, finite positive maxima, valid key page numbers, criteria sums and paper sums. Choice groups are disjoint, with equal per-alternative maxima; choose must be less than group size. Only best-N policy is implemented and teacher-approved. Nested/overlapping/unequal-mark structures are rejected. Use complete independently scoreable equal-mark alternatives, not overlapping sets of subparts.
 
-```dotenv
-PORT=5001
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=qwen2.5:3b
-```
+`gradeSheet` validates model awards against each approved criterion. The model never supplies total/maxima in its grading schema. `calculateFinalScore` also reconstructs criterion/question maxima from the rubric, bounds awards, rejects missing/duplicate results, derives status from awarded marks except unreadable/unanswered, and sums counted results. Four-decimal arithmetic rounding supports fractional split-ups; percentage uses two decimals. The fixed maximum remains rubric.totalMarks for every student, including incomplete answers.
 
-No API key is read by current source. Keep `.env` untracked. Have an Ollama server and selected model available separately (for a standard local installation, `ollama serve` and `ollama pull qwen2.5:3b` are typical preparation commands, not npm scripts). The checked-in source contains no Ollama installer or startup script. Ensure backend working directory contains readable `answer_key.txt` and can write temporary uploads. Do not run built server from the repository root without handling these relative paths. `dotenv.config()` precedes the route import in server.ts; verify actual environment loading if changing module/build semantics because service configuration is captured at module load.
+Review is required for medium/low confidence, unreadable/failed/unmatched evidence, required/present diagrams, absent question wording and multi-page comparisons. Page warnings can flag the overall result even if individual confidence is high. The model's reasoning is still AI judgment: deterministic temperature/seed do not guarantee correct symbolic math, geometry, or repeat-identical marks. Never claim an actual symbolic proof checker or perfect OCR exists.
 
-No root package/workspace script, Dockerfile, deployment configuration, test script, or GitHub Actions workflow is checked in. Production hosting requires configuring API URL, CORS, model networking, and frontend serving; it is not implemented by this guide.
+## Memory and context
 
-## End-to-end evaluation lifecycle
+All model work uses one sequential queue; pages are not loaded as one giant image array. Transcription uses one image; question grading uses at most two. Key index input has a 20,000-character limit; question extraction context 16,000; grading question/evidence budget 10,000. These are guards rather than exact tokenizer accounting. Ollama has 8192 context tokens and 5000 maximum generated tokens; reported length truncation fails. Long exams may need splitting into sections. The app does not benchmark, download or start Ollama automatically.
 
-1. User selects a PDF in FileUpload; the browser checks its MIME type only.
-2. App clears prior state, disables upload controls, and POSTs multipart `answerSheet`.
-3. Express CORS/JSON middleware runs; `/api` mounts evaluationRoutes.
-4. Multer accepts a single PDF by MIME, limits bytes to 20 MiB, and writes a temporary file under uploads/.
-5. evaluateController rejects missing/non-PDF files, reads the fixed answer key, and rejects an empty key.
-6. evaluateAnswerSheet checks file existence, constructs evaluation instructions plus key, and calls Ollama `/api/generate`. **No PDF contents are read or sent.**
-7. The service extracts the response string, parses JSON, and checks only that questions is an array.
-8. calculateFinalScore converts/clamps per-question marks, sums totals, computes percentage, and sets manual-review flag.
-9. Controller returns a success envelope or an error envelope; finally attempts deletion of its recorded temporary file. A deletion failure is logged.
-10. App renders ScoreCard and QuestionResult cards or an error alert, then stops loading. Evaluate Another resets client state; there is no saved evaluation to delete.
+## Debugging
 
-## Scoring details
+| Symptom | Check |
+|---|---|
+| Missing Poppler | Install brew poppler; ensure backend PATH contains pdfinfo/pdftoppm |
+| Text-only model fails images | Pull/configure qwen3-vl:2b-instruct; update Ollama |
+| Browser blocked | VITE_API_BASE_URL, backend PORT and FRONTEND_ORIGIN |
+| Wrong extracted total or key answer | Correct draft before approval; never fix via model rescaling |
+| Choice totals mismatch | Use disjoint complete equal-mark alternatives and choose count |
+| Unrelated or missing answers | Inspect page transcriptions, numeric labels and continuation evidence |
+| Expired session/job | Upload key again; sessions/results are ephemeral |
+| One failed sheet | Read that file's error; other results remain available |
+| Question zero with review flag | Provisional failure/unreadability; inspect evidence, not automatic final zero |
 
-For each question, convert obtainedMarks and maximumMarks with Number(). Convert NaN obtained marks to 0. Reject NaN or negative maximum marks. Clamp obtained marks to `[0, maxMarks]`. Flag manual review if status is exactly unreadable or confidence exactly low; medium alone does not flag. Sum clamped marks and converted maxima. Return percentage 0 for zero total maximum, otherwise round to two decimal places using toFixed(2) then Number().
+## Validation evidence and boundaries
 
-Return each question using `{...question, obtainedMarks}`: the original maximumMarks field is retained, although the aggregate used its numeric conversion. Do not assume full normalization of model data. Infinity is not rejected with Number.isFinite; objects/fields/status/confidence are not comprehensively checked. Empty question arrays are accepted and produce zero totals with no review flag. The code does not enforce question coverage, uniqueness, expected question count, authoritative maximum marks, or consistency between status and marks.
+Backend `npm test` builds and runs deterministic scoring and HTTP integration tests with a controlled Ollama stub and real Poppler. Coverage includes fixed maxima, subpart sums, internal choices, invalid schemes/NaN, missing results, PDF contents, image transport, approval locking, invalid/oversized uploads and separate file failures. Optional TEST_KEY_PDF/TEST_SHEET_PDF runs the supplied 8+5 page samples through real rendering but still uses mock grading. No personal PDF is committed.
 
-## Answer key and model behavior
-
-The fixed key is Food, Nutrition & Dietetics, Class XI, December 2021–2022. It covers 20 numbered questions in six sections: MCQ (1–5), blanks (6–10), short answers (11–15), BMI/SDGs (16–17), public-health nutrition/HDI (18–19), and anthropometric/dietary assessment (20, with subparts). It supplies answers but not explicit per-question marks. There is no parser that turns it into a validated rubric.
-
-The prompt asks for fair semantic evaluation and all questions; it cannot replace missing student evidence or mark allocation. Gemini names (`geminiService`, `GeminiEvaluationResponse`, geminiResult, console logs) are historical naming in the code. The actual integration uses native fetch to Ollama, not the installed Google SDK.
-
-## Debugging by symptom
-
-| Symptom | Inspect first | Explanation |
-|---|---|---|
-| Browser cannot connect | App URL, backend PORT, CORS origin | Hardcoded frontend address and exact allowed origin must agree |
-| Key missing/ENOENT | Backend process.cwd() | Key read is relative to working directory |
-| Non-PDF or oversized upload yields 500 | Multer and server error handler | Middleware failures are not mapped to client status codes |
-| File not found | Service fs.access and temporary-file path | Existence check precedes model request |
-| Ollama request failure | Base URL, server, model, returned error text | No retries or timeout policy |
-| Invalid JSON / invalid structure | Ollama response string and service checks | Format request is not comprehensive schema validation |
-| Plausible scores unrelated to PDF | geminiService payload | Student PDF never reaches model |
-| Wrong total or crash on malformed output | scoreCalculator and both types | Numeric checks are partial, types do not validate JSON |
-| No result after refresh | App local state | No persistence exists |
-| Old valid PDF submits after invalid selection | FileUpload.handleFileChange | Invalid branch does not clear stored file |
-
-## Verification for future changes
-
-For backend changes, run backend build; for UI changes, run frontend build and lint. There are no configured automated tests. For meaningful evaluation changes, verify health, missing upload, non-PDF upload, oversized upload, valid PDF flow, unavailable Ollama, malformed model JSON, scoring boundaries, low/unreadable review flag, and cleanup as relevant. Use controlled model responses for deterministic scoring checks; keep them distinct from live integration checks. To establish real grading, prove that student evidence reaches the model and compare against a known answer sheet and explicit rubric. Do not accept successful HTTP or plausible output alone as evidence.
-
-This guide was created by static source inspection, not by running the app, installing its dependencies, or calling a live model. No runtime or build success is asserted for the inspected application.
+Frontend `npm run build` and `npm run lint` validate types/build/rules. A browser smoke attempt in the development environment was blocked by Chromium process/socket restrictions, so no successful visual/browser run is claimed. Live Ollama handwriting/math quality and M1 memory/latency remain to be checked on the user's machine. Keep these limits explicit when reporting readiness.
