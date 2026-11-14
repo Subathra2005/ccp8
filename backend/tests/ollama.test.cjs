@@ -21,3 +21,21 @@ test('repeated truncation is bounded and never accepted as valid JSON even if it
  try{await assert.rejects(askModel('Index',{},[],{task:'Indexing'}),ModelOutputTruncatedError);assert.equal(count,2);}
  finally{global.fetch=original;}
 });
+test('vision transcription uses unconstrained streamed text, then preserves its equations',async()=>{
+ const {readImageText}=require('../dist/services/ollamaService');const original=global.fetch;let body;
+ global.fetch=async(_url,init)=>{body=JSON.parse(init.body);return new Response(JSON.stringify({message:{content:'Q16(i): 6 < x ≤ 12, 1 mark\nDiagram: A intersects B.'},done:true,done_reason:'stop'})+'\n');};
+ try{const text=await readImageText('Read page','png','Key page 3');assert.match(text,/6 < x ≤ 12/);assert.equal(body.format,undefined);assert.equal(body.stream,true);assert.equal(body.options.temperature,0.2);assert.equal(body.options.num_predict,1600);assert.deepEqual(body.messages[1].images,['png']);}
+ finally{global.fetch=original;}
+});
+test('streaming repetition is cancelled early and never used as evidence',async()=>{
+ const {readImageText}=require('../dist/services/ollamaService');const original=global.fetch;let cancelled=false;
+ global.fetch=async()=>new Response(new ReadableStream({start(controller){controller.enqueue(new TextEncoder().encode(JSON.stringify({message:{content:('repeated incorrect transcription line\n').repeat(8)},done:false})+'\n'));},cancel(){cancelled=true;}}));
+ try{await assert.rejects(readImageText('Read page','png','Loop test'),ModelOutputTruncatedError);assert.equal(cancelled,true);}
+ finally{global.fetch=original;}
+});
+test('a disconnected text stream cannot silently return a partial transcription',async()=>{
+ const {readImageText,hasRepetitiveTail}=require('../dist/services/ollamaService');const original=global.fetch;
+ global.fetch=async()=>new Response(JSON.stringify({message:{content:'unfinished evidence'},done:false})+'\n');
+ try{await assert.rejects(readImageText('Read page','png','Disconnect'),/before completion/);assert.equal(hasRepetitiveTail('x = 2\nx = 2\nFinal answer: x = 2'),false);}
+ finally{global.fetch=original;}
+});

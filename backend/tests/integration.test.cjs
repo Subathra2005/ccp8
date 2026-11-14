@@ -17,13 +17,16 @@ test('PDF image transport, fixed scheme approval and independent batch failures'
  const mock=http.createServer(async(req,res)=>{
   let body='';for await(const chunk of req)body+=chunk;
   const data=JSON.parse(body);calls.push(data);const message=data.messages.at(-1),prompt=message.content;
-  assert.equal(req.url,'/api/chat');assert.equal(data.options.temperature,0);assert.equal(data.options.seed,42);
+  assert.equal(req.url,'/api/chat');assert.equal(data.options.temperature,data.format===undefined?0.2:0);assert.equal(data.options.seed,42);
   let output;
   if(prompt.startsWith('Read page')){
-   if(process.env.SIMULATE_TRUNCATION==='1'&&!injectedTruncation){injectedTruncation=true;fullPageHeight=Buffer.from(message.images[0],'base64').readUInt32BE(20);res.setHeader('Content-Type','application/json');res.end(JSON.stringify({done_reason:'length',message:{content:'{unfinished'}}));return;}
-   if(prompt.includes('a cropped region')){cropCount++;assert.ok(Buffer.from(message.images[0],'base64').readUInt32BE(20)<fullPageHeight);}
+   if(process.env.SIMULATE_TRUNCATION==='1'&&!injectedTruncation){injectedTruncation=true;fullPageHeight=Buffer.from(message.images[0],'base64').readUInt32BE(20);res.setHeader('Content-Type','application/json');res.end(JSON.stringify({done:true,done_reason:'length',message:{content:'{unfinished'}}));return;}
+   if(prompt.includes('cropped region')){cropCount++;assert.ok(Buffer.from(message.images[0],'base64').readUInt32BE(20)<fullPageHeight);}
    assert.equal(message.images.length,1);assert.equal(Buffer.from(message.images[0],'base64').subarray(1,4).toString(),'PNG');
    studentRead=prompt.includes('student answer sheet')||studentRead;
+   output='Total marks 40. Question 1: Example answer. Diagram: Example diagram.';
+  }else if(prompt.startsWith('Organise this')){
+   assert.equal(message.images,undefined);
    output={headerText:'Total marks 40.',questions:[{questionId:'1',text:'Example answer',diagramDescription:'Example diagram',uncertain:false}],warnings:[]};
   }else if(prompt.startsWith('Index this'))output={title:'Test',totalMarks:40,instructions:'No choices',questions:[{id:'1',keyPages:[1]}],choiceGroups:[],warnings:[]};
   else if(prompt.startsWith('Extract ONLY'))output=question;
@@ -31,7 +34,7 @@ test('PDF image transport, fixed scheme approval and independent batch failures'
    assert.equal(message.images.length,2);assert.ok(studentRead);
    output={criteria:[{id:'method',obtainedMarks:10,reason:'Half the method is justified; remaining step missing.'},{id:'final',obtainedMarks:10,reason:'Partly correct final answer.'}],confidence:'high',methodAssessment:'Alternative method checked.',finalAnswerAssessment:'Partly correct.',diagramAssessment:'Diagram checked.',reason:'Partial credit.',unreadable:false};
   }else throw new Error('Unexpected model prompt');
-  res.setHeader('Content-Type','application/json');res.end(JSON.stringify({done:true,message:{content:JSON.stringify(output)}}));
+  res.setHeader('Content-Type','application/json');res.end(JSON.stringify({done:true,message:{content:typeof output==='string'?output:JSON.stringify(output)}}));
  });
  await new Promise(r=>mock.listen(0,'127.0.0.1',r));const port=await freePort();
  const child=spawn(process.execPath,['dist/server.js'],{cwd:require('node:path').resolve(__dirname,'..'),env:{...process.env,PORT:String(port),OLLAMA_BASE_URL:`http://127.0.0.1:${mock.address().port}`},stdio:'pipe'});

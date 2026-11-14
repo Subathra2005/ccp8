@@ -6,6 +6,7 @@ import {
 } from "../types/evaluation";
 import {
   askModel,
+  readImageText,
   ModelOutputTruncatedError,
   str,
   num,
@@ -85,18 +86,42 @@ export async function readDocument(
       const task = `Reading ${kind} page ${page}/${pages}${depth ? `, region ${y}–${y + h}` : ""}`;
       update(task);
       try {
+        const transcript = await readImageText(
+          `Read page ${page} of the ${kind === "key" ? "teacher answer key" : "student answer sheet"}${depth ? " (cropped region)" : ""}. Output ONLY its visible text, equations, question labels and written marks, in reading order, ONCE. Briefly describe any diagram's labels and relationships. Do not solve, explain, correct or continue the mathematics. ${kind === "key" ? "Retain paper totals, question/subpart allocations and OR instructions exactly." : "Ignore teacher annotations/ticks/scores; read the student's work only."} Use [unclear] for unreadable symbols. No JSON.`,
+          region,
+          task,
+        );
+        // Key indexing consumes page text directly; avoid reformatting the same
+        // key page into a question array that the indexer never uses.
+        if (kind === "key")
+          return [
+            {
+              headerText: transcript,
+              questions: [],
+              warnings: transcript.includes("[unclear]")
+                ? [
+                    "Some handwriting was marked [unclear]; verify this page against the PDF.",
+                  ]
+                : [],
+            },
+          ];
+        update(`Organising ${kind} page ${page}${depth ? " region" : ""}`);
         const parsed = await askModel<PageReading>(
-          `Read page ${page} of the ${kind === "key" ? "teacher answer key" : "student answer sheet"}${depth ? ` (a cropped region, from top pixel ${y} to ${y + h}; continue only what is visible)` : ""}. Transcribe visible English text, mathematical expressions, working, final answers and diagrams faithfully. Do NOT solve, explain, repeat or correct the work. Use concise plain text/LaTeX. ${kind === "key" ? "Preserve ALL written total marks, question/subpart marks, split-ups, section rules and internal choices." : "Ignore existing teacher ticks, awarded scores, corrections and annotations; read only the student's work."} headerText contains ONLY text not belonging to a question (paper total, section headings/instructions). Put each question's work ONCE in questions[].text, preserving subpart labels, using numeric main questionId such as 20. Describe diagram labels/connections/values in diagramDescription; empty if none. If a continuation's question number is unclear use unknown, uncertain=true, and warn. Never reconstruct clipped handwriting from guesses. If no readable content, return empty strings/arrays and a warning.`,
+          `Organise this page transcription into the supplied JSON schema. No image reading, solving or grading is required. Preserve the transcript exactly; do not repeat it. headerText contains paper totals, section rules and text not tied to a question. questions contains each main numeric questionId such as 20 with all its subparts in text. Keep diagram descriptions; diagramDescription is empty if none. An unidentifiable continuation uses questionId unknown with uncertain true. Preserve [unclear] and flag it. Every source statement must remain in headerText or one question, not both. Do not invent question numbers, marks or missing context. TRANSCRIPTION:\n${transcript}`,
           pageSchema,
-          [region],
-          { task, maxTokens: 2200, retryCompact: false },
+          [],
+          {
+            task: `Organising ${kind} page ${page}`,
+            maxTokens: 2200,
+            retryCompact: false,
+          },
         );
         return [checkReading(parsed, page)];
       } catch (error) {
         if (!(error instanceof ModelOutputTruncatedError)) throw error;
         if (depth >= 2 || h < 240)
           throw new Error(
-            `${task}: even a small page region exceeded the response limit. Check this page's scan and retry. Completed page transcriptions were not silently truncated.`,
+            `${task}: the vision model could not finish this region after bounded retries. No partial evidence was accepted. Check backend logs for repetition or output-limit diagnostics.`,
           );
         update(
           `Page ${page}: splitting dense handwriting into smaller regions`,
