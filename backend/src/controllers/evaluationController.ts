@@ -33,6 +33,7 @@ export async function extractController(req: Request, res: Response) {
           pages,
           current.directory,
           "key",
+          update,
         );
         update("Extracting marking scheme");
         const draft = await extractRubric(evidence, update);
@@ -62,13 +63,11 @@ export async function extractController(req: Request, res: Response) {
       session.expires = 0;
       await fs.rm(session.directory, { recursive: true, force: true });
     }
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message:
-          error instanceof Error ? error.message : "Could not read answer key.",
-      });
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Could not read answer key.",
+    });
   } finally {
     await fs.rm(file.path, { force: true });
   }
@@ -97,13 +96,11 @@ export function approveController(req: Request, res: Response) {
       rubric: session.rubric,
     });
   } catch (error) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message:
-          error instanceof Error ? error.message : "Invalid marking scheme.",
-      });
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Invalid marking scheme.",
+    });
   }
 }
 export async function evaluateController(req: Request, res: Response) {
@@ -119,7 +116,9 @@ export async function evaluateController(req: Request, res: Response) {
     if (!files.length) throw new Error("Upload 1–10 answerSheets PDFs.");
     // Acquire before the first await so simultaneous uploads cannot share a session.
     session.busy = true;
-    releaseLock = () => { session.busy = false; };
+    releaseLock = () => {
+      session.busy = false;
+    };
     const rubric = session.rubric;
     // Copy uploads into the session directory; retain no student file after its result.
     for (const file of files) {
@@ -146,6 +145,8 @@ export async function evaluateController(req: Request, res: Response) {
                 file.path,
                 pages,
                 session.directory,
+                (message) =>
+                  update(`Sheet ${i + 1}/${files.length}: ${message}`),
               );
               results.push({
                 filename: file.originalname,
@@ -178,15 +179,11 @@ export async function evaluateController(req: Request, res: Response) {
     return res.status(202).json({ success: true, jobId });
   } catch (error) {
     releaseLock?.();
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Could not start evaluation.",
-      });
+    return res.status(400).json({
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Could not start evaluation.",
+    });
   } finally {
     if (!accepted)
       await Promise.all(files.map((f) => fs.rm(f.path, { force: true })));

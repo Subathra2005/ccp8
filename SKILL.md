@@ -17,7 +17,7 @@ Read this entry point before working on CCP8. Describe the current implementatio
 
 ## Preserve these invariants
 
-1. Send actual rendered PDF images to a vision-capable Ollama model, never instructions alone. Use `qwen3-vl:2b-instruct` as the default for an 8 GB M1 Mac; do not substitute a text-only model.
+1. Send actual rendered PDF images to a vision-capable Ollama model, never instructions alone. Preserve the compact, nonduplicated page schema and bounded region fallback on truncation; never accept partial JSON. Use `qwen3-vl:2b-instruct` as the default for an 8 GB M1 Mac; do not substitute a text-only model.
 2. Extract the key once per session, then require teacher correction/approval of its total, expected answers, split-ups, page references and choices. Treat approval as a required product step. Never infer approval from a successful extraction.
 3. Lock the approved rubric on the backend. Never trust model-provided totals or maximum marks. Sum validated criterion awards in code against the locked maxima and reject inconsistent schemes.
 4. Apply choice groups using best N equal-mark complete alternatives, with stable key-order tie breaking. Require explicit teacher approval of this policy. Reject overlapping, nested or unequal-mark groups; explain the limitation rather than guessing.

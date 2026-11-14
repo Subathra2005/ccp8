@@ -12,7 +12,7 @@ function pdf(){
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function freePort(){const s=http.createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const p=s.address().port;await new Promise(r=>s.close(r));return p;}
 test('PDF image transport, fixed scheme approval and independent batch failures',{timeout:90000},async()=>{
- const calls=[];let studentRead=false;
+ const calls=[];let studentRead=false;let injectedTruncation=false;let fullPageHeight=0;let cropCount=0;
  const question={id:'1',question:'Example',expectedAnswer:'Example answer',maximumMarks:40,criteria:[{id:'method',description:'Method',maximumMarks:20},{id:'final',description:'Final',maximumMarks:20}],keyPages:[1],diagramRequired:true};
  const mock=http.createServer(async(req,res)=>{
   let body='';for await(const chunk of req)body+=chunk;
@@ -20,9 +20,11 @@ test('PDF image transport, fixed scheme approval and independent batch failures'
   assert.equal(req.url,'/api/chat');assert.equal(data.options.temperature,0);assert.equal(data.options.seed,42);
   let output;
   if(prompt.startsWith('Read page')){
+   if(process.env.SIMULATE_TRUNCATION==='1'&&!injectedTruncation){injectedTruncation=true;fullPageHeight=Buffer.from(message.images[0],'base64').readUInt32BE(20);res.setHeader('Content-Type','application/json');res.end(JSON.stringify({done_reason:'length',message:{content:'{unfinished'}}));return;}
+   if(prompt.includes('a cropped region')){cropCount++;assert.ok(Buffer.from(message.images[0],'base64').readUInt32BE(20)<fullPageHeight);}
    assert.equal(message.images.length,1);assert.equal(Buffer.from(message.images[0],'base64').subarray(1,4).toString(),'PNG');
    studentRead=prompt.includes('student answer sheet')||studentRead;
-   output={text:'Total marks 40. Question 1: Example answer. Method 20, final 20.',questions:[{questionId:'1',text:'Example answer',diagramDescription:'Example diagram',uncertain:false}],warnings:[]};
+   output={headerText:'Total marks 40.',questions:[{questionId:'1',text:'Example answer',diagramDescription:'Example diagram',uncertain:false}],warnings:[]};
   }else if(prompt.startsWith('Index this'))output={title:'Test',totalMarks:40,instructions:'No choices',questions:[{id:'1',keyPages:[1]}],choiceGroups:[],warnings:[]};
   else if(prompt.startsWith('Extract ONLY'))output=question;
   else if(prompt.startsWith('Grade ONLY')){
@@ -54,7 +56,8 @@ test('PDF image transport, fixed scheme approval and independent batch failures'
   assert.equal(result.results.length,2);assert.equal(result.results[0].success,true);assert.equal(result.results[1].success,false);
   const score=result.results[0].data;assert.equal(score.maximumMarks,40);assert.equal(score.totalMarks,20);assert.equal(score.questions[0].criteria[0].reason,'Half the method is justified; remaining step missing.');assert.equal(score.manualReviewRequired,true);
   const imageCalls=calls.filter(c=>c.messages.at(-1).content.startsWith('Read page'));
-  assert.ok(imageCalls.length>=2);if(process.env.TEST_KEY_PDF)assert.equal(imageCalls.length,13);
+  assert.ok(imageCalls.length>=2);if(process.env.TEST_KEY_PDF)assert.equal(imageCalls.length,process.env.SIMULATE_TRUNCATION==='1'?15:13);
+  if(process.env.SIMULATE_TRUNCATION==='1'){assert.ok(draft.warnings.some(w=>w.includes('overlapping regions')));assert.ok(imageCalls.length>=4);assert.equal(cropCount,2);}
   const huge=new FormData();huge.append('answerKey',new Blob([Buffer.alloc(21*1024*1024)],{type:'application/pdf'}),'huge.pdf');assert.equal((await request('/schemes/extract',huge)).status,413);
   assert.equal((await request('/jobs/missing',undefined,'GET')).status,404);
  }finally{child.kill();await new Promise(resolve=>child.once('exit',resolve));await new Promise(resolve=>mock.close(resolve));}

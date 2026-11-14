@@ -30,7 +30,7 @@ npm run dev
 
 Open `http://localhost:5173`. The default backend is `http://localhost:5001`; Ollama is `http://localhost:11434`. See `.env.example` in each package for overrides. If the browser origin changes, also set backend FRONTEND_ORIGIN. Do not manually set a multipart Content-Type header.
 
-The 2B vision model is a memory-conscious starting point, not a guarantee of handwriting/math accuracy or a latency benchmark. One model request runs at a time; PDFs are read one page at a time at a maximum dimension of 1800 pixels. Grading revisits the first matched student page and first referenced key page together (at most two images); other pages contribute their separately extracted transcriptions and are flagged for review. Close memory-heavy apps and expect lengthy processing. A larger vision model can be configured on stronger hardware.
+The 2B vision model is a memory-conscious starting point, not a guarantee of handwriting/math accuracy or a latency benchmark. One model request runs at a time; PDFs are read one page at a time at a maximum dimension of 1800 pixels. Grading revisits the first matched student page and first referenced key page together (at most two images); other pages contribute their separately extracted transcriptions and are flagged for review. Page transcriptions avoid duplicating content. Dense pages that hit the output limit are retried as overlapping image regions automatically (up to two split levels); cropped-page warnings require checking continuations. Status messages identify the current page/region/question, and the backend logs request duration and token counts. Close memory-heavy apps and expect lengthy processing. A larger vision model can be configured on stronger hardware.
 
 ## Teacher workflow
 
@@ -50,7 +50,7 @@ Use a `choiceGroups` entry such as `{"id":"or20","questionIds":["20.A","20.B"],"
 ### Limits and retention
 
 - Per file: PDF MIME and `%PDF-` header checks, Poppler parsing, 20 MiB, 1–30 pages. Password-protected/unreadable PDFs fail with a message. Upload limits also apply on the server.
-- A small-model context limit can require splitting long exams into sections; truncation is rejected rather than silently dropping evidence.
+- Dense-page output truncation has an automatic bounded crop fallback; other model stages retry compactly once. Partial JSON is never accepted. Exceptionally long exams can still exceed the small-model input context and need sectioning; this is separate from response-length truncation.
 - Jobs and approved schemes live in memory. Restarting the backend loses them; there is no durable student history or resume-after-refresh UI.
 - Uploaded keys remain in an OS temporary directory for the session. Idle sessions/results expire after two hours. Student PDFs are removed after processing, and rendered images are removed immediately after reading. Abnormal process termination can leave OS temporary files; these are not a durable storage feature.
 - This is a local development app without accounts or access control. The default browser origin is localhost. It is not configured as a multi-user hosted grading service.

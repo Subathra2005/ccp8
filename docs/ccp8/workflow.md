@@ -7,7 +7,7 @@ Follow the root README. Node 22.12+, Poppler (`pdfinfo`, `pdftoppm`) and an acti
 ## Key to result
 
 1. Upload single teacher answerKey PDF. Check header/pages with Poppler, create UUID session and retain key in an OS temporary directory.
-2. Queue extraction globally. Render one page at a time to PNG with maximum dimension 1800 px; send actual base64 image to Ollama /api/chat. Remove each rendered PNG after reading it. Preserve text, equations, diagram descriptions, page numbers and question labels.
+2. Queue extraction globally. Render one page at a time to PNG with maximum dimension 1800 px; send actual base64 image to Ollama /api/chat. Remove each rendered PNG after reading it. Preserve text, equations, diagram descriptions, page numbers and question labels. Generate header text and each question only once, then assemble the display transcription in code. If output truncates, read overlapping half-page regions; split again to quarter-page regions if necessary, bounded to two levels. Keep region warnings for teacher review. Never accept truncated JSON or silently lose a failed region.
 3. Index transcribed key pages to identify the paper total, instructions, questions, complete OR alternatives and page references. Extract one question's expected answer/criterion split-ups per subsequent request rather than demanding an enormous rubric JSON response.
 4. Return editable draft, page transcriptions and warnings. Total/split-up disagreement is surfaced, never rescaled. Missing/ambiguous marks use 0 so approval fails until corrected.
 5. Teacher checks key content, all maxima, criteria, references and internal choices, then approves. Backend validates positive finite marks, criterion sums, choice structure and paper sum, stores a deep copy and refuses changes to that scheme.
@@ -28,7 +28,7 @@ Review is required for medium/low confidence, unreadable/failed/unmatched eviden
 
 ## Memory and context
 
-All model work uses one sequential queue; pages are not loaded as one giant image array. Transcription uses one image; question grading uses at most two. Key index input has a 20,000-character limit; question extraction context 16,000; grading question/evidence budget 10,000. These are guards rather than exact tokenizer accounting. Ollama has 8192 context tokens and 5000 maximum generated tokens; reported length truncation fails. Long exams may need splitting into sections. The app does not benchmark, download or start Ollama automatically.
+All model work uses one sequential queue; pages are not loaded as one giant image array. Transcription uses one image; question grading uses at most two. Key index input has a 20,000-character limit; question extraction context 16,000; grading question/evidence budget 10,000. These are guards rather than exact tokenizer accounting. Ollama retains 8192 context tokens. Output budgets are 2200 for page reading/grading and 1800 for indexing/question extraction (default 2400). Text requests have one compact retry; page requests instead trigger the bounded crop fallback. Errors include the task/page. Page/region/question progress and request duration/token logs make stalls diagnosable. Long exams may need splitting into sections. The app does not benchmark, download or start Ollama automatically.
 
 ## Debugging
 
@@ -46,6 +46,6 @@ All model work uses one sequential queue; pages are not loaded as one giant imag
 
 ## Validation evidence and boundaries
 
-Backend `npm test` builds and runs deterministic scoring and HTTP integration tests with a controlled Ollama stub and real Poppler. Coverage includes fixed maxima, subpart sums, internal choices, invalid schemes/NaN, missing results, PDF contents, image transport, approval locking, invalid/oversized uploads and separate file failures. Optional TEST_KEY_PDF/TEST_SHEET_PDF runs the supplied 8+5 page samples through real rendering but still uses mock grading. No personal PDF is committed.
+Backend `npm test` builds and runs deterministic scoring and HTTP integration tests with a controlled Ollama stub and real Poppler. Coverage includes fixed maxima, subpart sums, internal choices, invalid schemes/NaN, missing results, PDF contents, image transport, approval locking, invalid/oversized uploads and separate file failures. Optional TEST_KEY_PDF/TEST_SHEET_PDF runs the supplied 8+5 page samples through real rendering but still uses mock grading. No personal PDF is committed. Truncation regression tests verify the typed error, compact retry, bounded attempts and rejection of parseable-but-truncated output. SIMULATE_TRUNCATION=1 exercises recovery through real Poppler crops; with the sample PDFs this makes 15 page-reading image requests instead of 13.
 
 Frontend `npm run build` and `npm run lint` validate types/build/rules. A browser smoke attempt in the development environment was blocked by Chromium process/socket restrictions, so no successful visual/browser run is claimed. Live Ollama handwriting/math quality and M1 memory/latency remain to be checked on the user's machine. Keep these limits explicit when reporting readiness.

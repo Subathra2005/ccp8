@@ -34,6 +34,7 @@ export async function renderPage(
   file: string,
   page: number,
   directory: string,
+  crop?: { x: number; y: number; width: number; height: number },
 ): Promise<string> {
   const prefix = path.join(directory, `page-${page}`);
   try {
@@ -47,6 +48,18 @@ export async function renderPage(
         "-singlefile",
         "-scale-to",
         "1800",
+        ...(crop
+          ? [
+              "-x",
+              String(crop.x),
+              "-y",
+              String(crop.y),
+              "-W",
+              String(crop.width),
+              "-H",
+              String(crop.height),
+            ]
+          : []),
         "-png",
         file,
         prefix,

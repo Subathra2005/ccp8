@@ -4,12 +4,27 @@ import {
   QuestionEvaluation,
   CriterionAward,
 } from "../types/evaluation";
-import { askModel, str, num, bool, array, object } from "./ollamaService";
+import {
+  askModel,
+  ModelOutputTruncatedError,
+  str,
+  num,
+  bool,
+  array,
+  object,
+} from "./ollamaService";
 import { renderPage } from "./pdfService";
 import { calculateFinalScore } from "../utils/scoreCalculator";
 
+// Do not generate the same page twice (whole-page text AND per-question text).
+// Build display/index text deterministically from a single faithful transcription.
+interface PageReading {
+  headerText: string;
+  questions: PageEvidence["questions"];
+  warnings: string[];
+}
 const pageSchema = object({
-  text: str,
+  headerText: str,
   questions: array(
     object({
       questionId: str,
@@ -20,35 +35,129 @@ const pageSchema = object({
   ),
   warnings: array(str),
 });
+function checkReading(parsed: PageReading, page: number) {
+  if (
+    !parsed ||
+    typeof parsed.headerText !== "string" ||
+    !Array.isArray(parsed.questions) ||
+    !Array.isArray(parsed.warnings) ||
+    parsed.questions.some(
+      (q) =>
+        !q ||
+        typeof q.questionId !== "string" ||
+        typeof q.text !== "string" ||
+        typeof q.diagramDescription !== "string" ||
+        typeof q.uncertain !== "boolean",
+    ) ||
+    parsed.warnings.some((w) => typeof w !== "string")
+  )
+    throw new Error(`Invalid transcription on page ${page}.`);
+  return parsed;
+}
 export async function readDocument(
   file: string,
   pages: number,
   directory: string,
   kind: "key" | "student",
+  update: (message: string) => void = () => {},
 ): Promise<PageEvidence[]> {
   const evidence: PageEvidence[] = [];
   for (let page = 1; page <= pages; page++) {
+    update(`Reading ${kind} page ${page} of ${pages}`);
     const image = await renderPage(file, page, directory);
-    const parsed = await askModel<Omit<PageEvidence, "page">>(
-      `Read page ${page} of the ${kind === "key" ? "teacher answer key" : "student answer sheet"}. Transcribe ALL visible English text, mathematical expressions, working and final answers faithfully into text; use plain text/LaTeX. Retain question and subpart labels. ${kind === "key" ? "Include every total, per-question mark, marking split-up, section rule and internal choice exactly as written." : "Ignore existing teacher ticks, awarded scores, corrections and annotations. Read the student work independently."} Describe every diagram precisely: labels, geometry, connections, plotted values and regions. Use an empty diagramDescription string when no diagram is present. Add questions entries per main question number, using numeric questionId such as "20" (no section prefixes). Put ALL subparts of that question in its text. Include continued questions even if only a continuation label appears; if not identifiable use "unknown" and flag it. Flag unclear symbols, diagram ambiguity and missing context. Never solve or correct the transcription.`,
-      pageSchema,
-      [image],
-    );
-    if (
-      typeof parsed.text !== "string" ||
-      !Array.isArray(parsed.questions) ||
-      !Array.isArray(parsed.warnings) ||
-      parsed.questions.some(
-        (q) =>
-          typeof q.questionId !== "string" ||
-          typeof q.text !== "string" ||
-          typeof q.diagramDescription !== "string" ||
-          typeof q.uncertain !== "boolean",
-      ) ||
-      parsed.warnings.some((w) => typeof w !== "string")
-    )
-      throw new Error(`Invalid transcription on page ${page}.`);
-    evidence.push({ ...parsed, page });
+    const png = Buffer.from(image, "base64");
+    const width = png.readUInt32BE(16),
+      height = png.readUInt32BE(20);
+    async function readRegion(
+      y: number,
+      h: number,
+      depth: number,
+    ): Promise<PageReading[]> {
+      const region =
+        depth === 0
+          ? image
+          : await renderPage(file, page, directory, {
+              x: 0,
+              y,
+              width,
+              height: h,
+            });
+      const task = `Reading ${kind} page ${page}/${pages}${depth ? `, region ${y}–${y + h}` : ""}`;
+      update(task);
+      try {
+        const parsed = await askModel<PageReading>(
+          `Read page ${page} of the ${kind === "key" ? "teacher answer key" : "student answer sheet"}${depth ? ` (a cropped region, from top pixel ${y} to ${y + h}; continue only what is visible)` : ""}. Transcribe visible English text, mathematical expressions, working, final answers and diagrams faithfully. Do NOT solve, explain, repeat or correct the work. Use concise plain text/LaTeX. ${kind === "key" ? "Preserve ALL written total marks, question/subpart marks, split-ups, section rules and internal choices." : "Ignore existing teacher ticks, awarded scores, corrections and annotations; read only the student's work."} headerText contains ONLY text not belonging to a question (paper total, section headings/instructions). Put each question's work ONCE in questions[].text, preserving subpart labels, using numeric main questionId such as 20. Describe diagram labels/connections/values in diagramDescription; empty if none. If a continuation's question number is unclear use unknown, uncertain=true, and warn. Never reconstruct clipped handwriting from guesses. If no readable content, return empty strings/arrays and a warning.`,
+          pageSchema,
+          [region],
+          { task, maxTokens: 2200, retryCompact: false },
+        );
+        return [checkReading(parsed, page)];
+      } catch (error) {
+        if (!(error instanceof ModelOutputTruncatedError)) throw error;
+        if (depth >= 2 || h < 240)
+          throw new Error(
+            `${task}: even a small page region exceeded the response limit. Check this page's scan and retry. Completed page transcriptions were not silently truncated.`,
+          );
+        update(
+          `Page ${page}: splitting dense handwriting into smaller regions`,
+        );
+        const middle = Math.floor(h / 2),
+          overlap = Math.min(32, Math.floor(h / 8));
+        // Read in sequence; overlap protects symbols at crop boundaries.
+        return [
+          ...(await readRegion(y, middle + overlap, depth + 1)),
+          ...(await readRegion(
+            y + middle - overlap,
+            h - middle + overlap,
+            depth + 1,
+          )),
+        ];
+      }
+    }
+    const readings = await readRegion(0, height, 0);
+    const questions: PageEvidence["questions"] = [];
+    for (const reading of readings)
+      for (const q of reading.questions) {
+        const existing = questions.find((p) => p.questionId === q.questionId);
+        if (!existing) questions.push({ ...q });
+        else {
+          // Remove exact duplicate lines in crop overlaps, never deduplicate marks by value.
+          const append = (a: string, b: string) => {
+            if (!a) return b;
+            if (!b) return a;
+            const left = a.split("\n"),
+              right = b.split("\n");
+            let overlap = 0;
+            for (let n = 1; n <= Math.min(left.length, right.length); n++)
+              if (left.slice(-n).join("\n") === right.slice(0, n).join("\n"))
+                overlap = n;
+            return [...left, ...right.slice(overlap)].join("\n");
+          };
+          existing.text = append(existing.text, q.text);
+          existing.diagramDescription = append(
+            existing.diagramDescription,
+            q.diagramDescription,
+          );
+          existing.uncertain ||= q.uncertain;
+        }
+      }
+    const warnings = [...new Set(readings.flatMap((r) => r.warnings))];
+    if (readings.length > 1)
+      warnings.push(
+        "Dense page was read in overlapping regions. Check question continuations, shared diagrams and repeated boundary lines.",
+      );
+    evidence.push({
+      page,
+      text: [
+        ...new Set(readings.map((r) => r.headerText).filter(Boolean)),
+        ...questions.map(
+          (q) =>
+            `Question ${q.questionId}: ${q.text}${q.diagramDescription ? `\nDiagram: ${q.diagramDescription}` : ""}`,
+        ),
+      ].join("\n"),
+      questions,
+      warnings,
+    });
   }
   return evidence;
 }
@@ -108,6 +217,8 @@ export async function extractRubric(
   }>(
     `Index this teacher answer key. Return the explicitly written totalMarks (0 if missing), title, all exam instructions, each main question id and ALL pages with its worked answer including continuations. Keep the paper total exactly as written. Include all OR / answer-any-N choices in choiceGroups; use complete equal-mark alternatives. For OR alternatives sharing number 20 use ids 20.A and 20.B, with choose 1. Subparts without a choice stay within their main question. Explain unsupported nested/unequal-mark choices in warnings; never invent a rule. Do not solve or grade. Pages: ${input}`,
     indexSchema,
+    [],
+    { task: "Indexing answer key", maxTokens: 1800 },
   );
   if (
     !Array.isArray(index.questions) ||
@@ -139,6 +250,8 @@ export async function extractRubric(
     const q = await askModel<Rubric["questions"][number]>(
       `Extract ONLY question ${ref.id} from these teacher-key page transcriptions. Include expected answer and working faithfully, do not correct a suspected key error. Use criteria for EACH explicitly marked subpart or method/final/diagram step, preserving exact marks. maximumMarks must equal their sum AND the written question total. If only a total is given, use one criterion for the whole answer allowing partial credit for valid working. Do not mistake a section total for this question's maximum. If marks are absent or ambiguous use 0 so teacher must correct before approval; do not guess or rescale. Set diagramRequired true when a diagram is needed. For a shared-number OR question extract only the specified alternative. Question wording may be empty if absent. id MUST be ${ref.id}. keyPages MUST be ${JSON.stringify(ref.keyPages)}. Exam instructions: ${index.instructions}. Pages: ${JSON.stringify(context)}`,
       questionSchema,
+      [],
+      { task: `Extracting question ${ref.id} split-ups`, maxTokens: 1800 },
     );
     questions.push({ ...q, id: ref.id, keyPages: ref.keyPages });
   }
@@ -190,8 +303,15 @@ export async function gradeSheet(
   sheetFile: string,
   pages: number,
   directory: string,
+  update: (message: string) => void = () => {},
 ) {
-  const evidence = await readDocument(sheetFile, pages, directory, "student");
+  const evidence = await readDocument(
+    sheetFile,
+    pages,
+    directory,
+    "student",
+    update,
+  );
   const warnings = evidence.flatMap((e) =>
     e.warnings.map((w) => `Page ${e.page}: ${w}`),
   );
@@ -210,6 +330,7 @@ export async function gradeSheet(
     );
   const results: QuestionEvaluation[] = [];
   for (const q of rubric.questions) {
+    update(`Checking question ${q.id}`);
     const sourceId = q.id.split(".")[0];
     const matching = evidence.flatMap((e) =>
       e.questions
@@ -249,6 +370,7 @@ export async function gradeSheet(
         `Grade ONLY question ${q.id} (a .A/.B suffix means a particular OR alternative; other alternative work must NOT earn marks here) using the APPROVED marking scheme below. First image is student page ${matching[0].page}; second is teacher-key page ${q.keyPages[0]}. All matching continuation-page transcriptions follow. Ignore prior teacher scores/ticks/corrections. Verify the mathematical validity of the student's method independently: an alternative valid derivation is allowed and does not lose credit merely for differing from the key. Compare the final answer (including equivalent forms, units and domains). Correct final answer with invalid working does not earn method credit. Apply EACH criterion's exact mark split-up and explain awarded AND lost credit specifically. Inspect diagram labels, relationships and calculations, not artistic likeness. Never infer invisible work; if uncertain flag low confidence. Treat a suspected incorrect key as requiring review, not permission to alter approved maxima. Return all criterion ids exactly once. Do not return or change maximum marks or total.\nAPPROVED SCHEME: ${JSON.stringify(q)}\nSTUDENT EVIDENCE: ${text}\nEXAM INSTRUCTIONS: ${rubric.instructions}`,
         gradeSchema,
         images,
+        { task: `Grading question ${q.id}`, maxTokens: 2200 },
       );
       if (
         !Array.isArray(raw.criteria) ||

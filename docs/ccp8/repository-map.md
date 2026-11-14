@@ -1,6 +1,6 @@
 # Complete repository map
 
-This inventory accompanies the handwritten-PDF implementation. All 50 tracked files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
+This inventory accompanies the handwritten-PDF implementation. All 51 tracked files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
 
 | Path | Purpose |
 |---|---|
@@ -23,6 +23,7 @@ This inventory accompanies the handwritten-PDF implementation. All 50 tracked fi
 | `backend/src/utils/rubric.ts` | Runtime scheme validation: ids, finite marks, split-ups, page refs, choices and fixed paper total. |
 | `backend/src/utils/scoreCalculator.ts` | Reconstruct approved maxima; sum criteria; best-N choices; fixed denominator and review flags. |
 | `backend/tests/integration.test.cjs` | Real Poppler plus controlled Ollama HTTP stub; image transport, approval, upload errors and isolated batch outcomes. |
+| `backend/tests/ollama.test.cjs` | Truncation regression tests: typed errors, compact retry, bounded attempts and no partial output acceptance. |
 | `backend/tests/scoring.test.cjs` | Deterministic rubric/scoring, fractional choice, invalid award and PDF-byte tests. |
 | `backend/tsconfig.json` | Strict TypeScript; ES2022, CommonJS, Node resolution, src → dist, esModuleInterop. |
 | `docs/ccp8/api.md` | Complete HTTP and payload contracts. |
