@@ -1,3 +1,4 @@
+import { evaluationProvider } from './services/geminiService';
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -11,7 +12,8 @@ app.get("/api/health", (_req, res) =>
   res.json({
     success: true,
     message: "Automated Evaluation API is running",
-    model: process.env.OLLAMA_MODEL || "qwen3-vl:2b-instruct",
+    provider: evaluationProvider(),
+    model: evaluationProvider() === "gemini" ? "gemini-4-hydrogen" : process.env.OLLAMA_MODEL || "qwen3-vl:2b-instruct",
   }),
 );
 app.use("/api", evaluationRoutes);

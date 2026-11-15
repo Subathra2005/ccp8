@@ -6,18 +6,19 @@ This reference accompanies the TXT-key / handwritten-student-PDF implementation 
 
 | Method | Path | Request | Response |
 |---|---|---|---|
-| GET | `/api/health` | None | 200 `{success:true,message,model}`; process check only |
+| GET | `/api/health` | None | 200 `{success:true,message,provider,model}`; process check only |
 | POST | `/api/schemes/extract` | Multipart single `answerKey` TXT (1 MiB) | 202 `{success:true,jobId}` |
 | GET | `/api/jobs/:id` | Job UUID | 200 `{success:true,id,status,message,data?,expires}`; 404 if expired/missing |
 | POST | `/api/schemes/:id/approve` | JSON `{rubric,confirmed:true}` | 200 `{success:true,sessionId,rubric}` |
 | POST | `/api/evaluate` | Multipart `sessionId` and 1–10 `answerSheets` PDFs | 202 `{success:true,jobId}` |
-| POST (outbound) | `${OLLAMA_BASE_URL}/api/chat` | JSON with schema and optional images | Non-streaming Ollama `message.content`, parsed as JSON |
+| POST (outbound, default) | `https://generativelanguage.googleapis.com/v1beta/interactions` | PDF document plus locked rubric text and JSON schema | Completed structured assessment |
+| POST (outbound, optional local provider) | `${OLLAMA_BASE_URL}/api/chat` | JSON with schema and optional images | Non-streaming Ollama `message.content`, parsed as JSON |
 
-No fixed answer-key file, history/list/delete/export/review-update endpoint, separate provider upload, or Gemini call exists. Framework CORS/preflight, GET-associated HEAD and default 404 are not custom application routes.
+No fixed answer-key file, history/list/delete/export/review-update endpoint or separate provider upload exists. Framework CORS/preflight, GET-associated HEAD and default 404 are not custom application routes.
 
 ## Upload and transport
 
-Keys accept .txt filenames with a 1 MiB server limit and UTF-8/content validation. Students use PDF MIME. Multer writes temporary files to the OS temp directory and limits each file to 20 MiB, limits ten files, two text fields, and 1 KiB per multipart field. Poppler subsequently checks PDF bytes (`%PDF-`) and 1–30 pages. Frontend applies corresponding input limits. Upload size errors are 413; other Multer rejections are 400. The key is moved into its session directory; student files are deleted after processing.
+Keys accept .txt filenames with a 1 MiB server limit and UTF-8/content validation. Students use PDF MIME. Multer writes temporary files to the OS temp directory and limits each file to 20 MiB, limits ten files, two text fields, and 1 KiB per multipart field. Poppler subsequently checks PDF bytes (`%PDF-`) and 1–30 pages. Gemini enforces an additional 10 MiB per-sheet limit before sending bytes; the frontend shows 10 MiB for Gemini and 20 MiB for Ollama. Upload size errors are 413; other Multer rejections are 400. The key is moved into its session directory; student files are deleted after processing.
 
 Backend JSON body limit is 200 KiB. Allow frontend origin via FRONTEND_ORIGIN (default `http://localhost:5173`). Frontend API base is VITE_API_BASE_URL (default `http://localhost:5001/api`). Let the multipart sender set Content-Type/boundary.
 
@@ -61,12 +62,19 @@ Completed batch `data` is `{results: SheetResult[], rubric}`. A SheetResult is e
 
 FinalEvaluation:
 
-- `totalMarks`: backend sum of counted criterion awards.
+- `totalMarks`: backend sum of counted criterion awards, or null when Gemini assessments are unresolved.
 - `maximumMarks`: immutable approved rubric.totalMarks.
-- `percentage`: ratio rounded to two decimals.
+- `percentage`: ratio rounded to two decimals, or null.
+- Gemini adds `provider`, `model`, `elapsedSeconds`, `usage` (provider token metadata).
 - `manualReviewRequired`, `warnings`, `questions`.
 
-Each question returns questionNumber (string), maximumMarks, obtainedMarks, status (`correct|partial|incorrect|unreadable|unanswered`), confidence, studentAnswer, reason, methodAssessment, finalAnswerAssessment, diagramAssessment, criteria, sourcePages, counted and manualReviewRequired. Criteria include id, description, approved maximumMarks, obtainedMarks and a specific reason. Excluded choices remain visible with counted=false. Missing/failed questions have provisional zero marks and a review flag.
+Each question returns questionNumber (string), maximumMarks, obtainedMarks, status (`correct|partial|incorrect|unreadable|unanswered|not_evaluated`), confidence, studentAnswer, reason, methodAssessment, finalAnswerAssessment, diagramAssessment, criteria, sourcePages, counted and manualReviewRequired. Criteria include id, description, approved maximumMarks, obtainedMarks and a specific reason. Excluded choices remain visible with counted=false. Gemini question/criterion `obtainedMarks` can be null. Missing assessments are `not_evaluated`; unreadable/review-required results remain unscored. `counted` is null for unresolved choice selection. Any unresolved question withholds the total. The legacy Ollama path retains provisional zero/review results.
+
+## Outbound Gemini contract (default)
+
+`EVALUATION_PROVIDER=gemini` (default), backend-only `GEMINI_API_KEY`. `POST https://generativelanguage.googleapis.com/v1beta/interactions`, headers `x-goog-api-key` and `Api-Revision: 2026-05-20`. Native fetch sends `model:gemini-4-hydrogen`, `store:false`, base64 PDF `document` input and text containing the immutable approved rubric. Structured `response_format` supplies JSON schema; `generation_config.max_output_tokens=24576`. Timeout: 600 seconds. No automatic retries or fallback.
+
+Shared `backend/lib/gemini.cjs` powers the CLI and web adapter. It accepts only completed JSON, unique known question IDs, exact criterion IDs, bounded finite marks and valid source pages. Missing questions are unscored. Code supplies maxima, sums and best-N choice selection. Error messages redact keys. HTTP 401/402/403/404/429 and timeouts stop the remaining batch; other per-sheet failures preserve independent processing. Missing API key fails before queueing. Health reports configuration, not credentials or verified provider access.
 
 ## Outbound Ollama contract
 

@@ -10,20 +10,21 @@ export default function QuestionResult({
         <div className="d-flex justify-content-between gap-3">
           <h3 className="h5">Question {q.questionNumber}</h3>
           <strong>
-            {q.obtainedMarks} / {q.maximumMarks}
+            {q.obtainedMarks === null ? "Not scored" : q.obtainedMarks} / {q.maximumMarks}
           </strong>
         </div>
         <p>
           <span
             className={`badge text-bg-${q.status === "correct" ? "success" : q.status === "incorrect" ? "danger" : "secondary"}`}
           >
-            {q.status}
+            {q.status.replaceAll("_", " ")}
           </span>{" "}
-          {!q.counted && (
+          {q.counted === false && (
             <span className="badge text-bg-light ms-2">
               Not counted: internal choice
             </span>
           )}{" "}
+          {q.counted === null && <span className="badge text-bg-light ms-2">Choice pending review</span>}
           {q.manualReviewRequired && (
             <span className="badge text-bg-warning ms-2">Teacher review</span>
           )}
@@ -46,7 +47,7 @@ export default function QuestionResult({
                     {c.id}: {c.description}
                   </td>
                   <td className="text-nowrap">
-                    {c.obtainedMarks} / {c.maximumMarks}
+                    {c.obtainedMarks === null ? "Not scored" : c.obtainedMarks} / {c.maximumMarks}
                   </td>
                   <td>{c.reason}</td>
                 </tr>

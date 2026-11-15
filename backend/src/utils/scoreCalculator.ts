@@ -22,21 +22,21 @@ export function calculateFinalScore(
       throw new Error(`Missing result for ${q.id}.`);
     const criteria = q.criteria.map((c) => {
       const matches = result.criteria.filter((x) => x.id === c.id);
-      if (matches.length !== 1 || !Number.isFinite(matches[0].obtainedMarks))
+      if (matches.length !== 1 || (typeof matches[0].obtainedMarks !== "number" || !Number.isFinite(matches[0].obtainedMarks)))
         throw new Error(`Invalid score for ${q.id}/${c.id}.`);
       return {
         ...matches[0],
         description: c.description,
         maximumMarks: c.maximumMarks,
         obtainedMarks: round(
-          Math.min(c.maximumMarks, Math.max(0, matches[0].obtainedMarks)),
+          Math.min(c.maximumMarks, Math.max(0, matches[0].obtainedMarks as number)),
         ),
       };
     });
     const obtainedMarks = round(
       criteria.reduce((s, c) => s + c.obtainedMarks, 0),
     );
-    const status =
+    const status: QuestionEvaluation["status"] =
       result.status === "unreadable" || result.status === "unanswered"
         ? result.status
         : obtainedMarks === q.maximumMarks
@@ -51,7 +51,7 @@ export function calculateFinalScore(
       obtainedMarks,
       status,
       counted: true,
-    } as QuestionEvaluation;
+    };
   });
   for (const g of rubric.choiceGroups) {
     // Teacher approval explicitly accepts best-N, including internal OR alternatives.

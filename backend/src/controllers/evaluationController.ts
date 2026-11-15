@@ -1,3 +1,4 @@
+import { checkProviderConfiguration, gradeGeminiSheet, shouldStopBatch } from '../services/geminiService';
 import { parseTextKey } from '../services/textKeyService';
 import { Request, Response } from "express";
 import fs from "node:fs/promises";
@@ -101,6 +102,7 @@ export async function evaluateController(req: Request, res: Response) {
     if (session.busy)
       throw new Error("A batch is already running for this key.");
     if (!files.length) throw new Error("Upload 1–10 answerSheets PDFs.");
+    const provider = checkProviderConfiguration();
     // Acquire before the first await so simultaneous uploads cannot share a session.
     session.busy = true;
     releaseLock = () => {
@@ -118,6 +120,7 @@ export async function evaluateController(req: Request, res: Response) {
     try {
       jobId = enqueue("Evaluating answer sheets", async (update) => {
         const results: SheetResult[] = [];
+        let batchStopReason: string | undefined;
         try {
           for (let i = 0; i < files.length; i++) {
             const file = files[i];
@@ -125,8 +128,11 @@ export async function evaluateController(req: Request, res: Response) {
               `Evaluating sheet ${i + 1} of ${files.length}: ${file.originalname}`,
             );
             try {
+              if (batchStopReason) throw new Error(`Not evaluated: batch stopped. ${batchStopReason}`);
               const pages = await inspectPdf(file.path);
-              const data = await gradeSheet(
+              const data = provider === "gemini"
+                ? await gradeGeminiSheet(rubric, file.path, pages, message => update(`Sheet ${i + 1}/${files.length}: ${message}`))
+                : await gradeSheet(
                 rubric,
                 undefined,
                 file.path,
@@ -141,6 +147,7 @@ export async function evaluateController(req: Request, res: Response) {
                 data,
               });
             } catch (error) {
+              if (shouldStopBatch(error)) batchStopReason = error instanceof Error ? error.message : "Provider unavailable.";
               results.push({
                 filename: file.originalname,
                 success: false,

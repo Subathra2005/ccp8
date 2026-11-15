@@ -1,6 +1,6 @@
 # Gemini API grading trials
 
-This is an opt-in command-line experiment, not a change to the web app's Ollama provider. It sends the original PDF and the parsed Q19 reference from your TXT key to Google in one request. It does not use OCR or make automatic retries. Requires Node 22.12+, npm dependencies, a backend build and Poppler for local PDF validation.
+This is an opt-in command-line experiment, also available separately from the Gemini web workflow. It sends the original PDF and the parsed Q19 reference from your TXT key to Google in one request. It does not use OCR or make automatic retries. Requires Node 22.12+, npm dependencies, a backend build and Poppler for local PDF validation.
 
 From the repository root:
 
@@ -49,4 +49,4 @@ The JSON report under `backend/trial-results/gemini-all-<timestamp>.json` includ
 
 Missing questions become `not_evaluated`; ambiguous, unreadable or review-required assessments have null scores. Any unresolved question withholds the paper total (including unresolved choice alternatives). Only a model-confirmed genuinely unanswered question receives zero for absent work. Unknown/duplicate question IDs, invalid criteria, out-of-range marks and truncated responses are rejected. A complete response still requires human comparison against the handwriting: schema validation cannot establish mathematical or visual accuracy.
 
-The agent tested transport and scoring using mocks, not a live full-sheet API request. The web application continues to use Ollama.
+The agent tested transport and scoring using mocks, not a live full-sheet API request. The web application now defaults to Gemini and shares `backend/lib/gemini.cjs` with this full-sheet script.

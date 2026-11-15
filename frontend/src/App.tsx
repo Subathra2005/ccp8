@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import FileUpload from "./components/FileUpload";
 import ScoreCard from "./components/ScoreCard";
 import QuestionResult from "./components/QuestionResult";
@@ -11,6 +11,12 @@ interface Draft {
   evidence: PageEvidence[];
 }
 export default function App() {
+  const [provider, setProvider] = useState<string>("");
+  useEffect(() => {
+    let active = true;
+    api<{provider: string}>("/health").then(data => { if (active) setProvider(data.provider); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editor, setEditor] = useState("");
   const [locked, setLocked] = useState<Rubric | null>(null);
@@ -96,9 +102,11 @@ export default function App() {
           student with reasons for every mark.
         </p>
         <div className="alert alert-info">
-          Local vision processing can take several minutes per page on an 8 GB
-          Mac. Keep this tab open. Results assist a teacher; handwriting,
-          alternative mathematics and diagrams can require review.
+          {provider === "gemini"
+            ? "Gemini receives each original student PDF and your approved marking scheme. Sheets are evaluated one at a time; your API project quota/billing applies."
+            : provider === "ollama" ? "Local Ollama processing can take several minutes per page on an 8 GB Mac."
+            : "Checking the evaluation provider…"}
+          {" "}Keep this tab open. Review marks against the handwriting before finalising.
         </div>
         {!draft && (
           <FileUpload
@@ -250,6 +258,7 @@ export default function App() {
             <FileUpload
               label="3. Upload student answer sheets"
               multiple
+              maxPdfMiB={provider === "ollama" ? 20 : 10}
               loading={loading}
               onSubmit={evaluate}
             />

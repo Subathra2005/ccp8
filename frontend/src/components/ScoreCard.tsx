@@ -4,10 +4,11 @@ export default function ScoreCard({ result }: { result: FinalEvaluation }) {
     <section className="card shadow-sm mb-4">
       <div className="card-body p-4">
         <h3 className="h4">
-          Total: {result.totalMarks} / {result.maximumMarks}
+          Total: {result.totalMarks === null ? "Pending review" : result.totalMarks} / {result.maximumMarks}
         </h3>
-        <p>{result.percentage}% · Maximum fixed by the approved answer key</p>
-        <div
+        <p>{result.percentage === null ? "No final percentage yet" : `${result.percentage}%`} · Maximum fixed by the approved answer key</p>
+        {result.model && <p className="text-muted">{result.model} · {result.elapsedSeconds} seconds</p>}
+        {result.percentage !== null && <div
           className="progress"
           role="progressbar"
           aria-label="Total percentage"
@@ -19,12 +20,11 @@ export default function ScoreCard({ result }: { result: FinalEvaluation }) {
             className="progress-bar"
             style={{ width: `${result.percentage}%` }}
           />
-        </div>
+        </div>}
         {result.manualReviewRequired && (
           <div className="alert alert-warning mt-3">
-            Provisional result — teacher review required. Unreadable or failed
-            questions may currently have zero marks; check them before
-            finalising.
+            Teacher review required. Check flagged answers against the original PDF before finalising.
+            {result.totalMarks === null && " Unresolved answers are unscored; the total is withheld."}
           </div>
         )}
         {result.warnings.length > 0 && (

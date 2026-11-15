@@ -1,6 +1,6 @@
 # Complete repository map
 
-This inventory accompanies the handwritten-PDF implementation. All 61 tracked files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
+This inventory accompanies the handwritten-PDF implementation. Tracked source files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
 
 | Path | Purpose |
 |---|---|
@@ -8,7 +8,7 @@ This inventory accompanies the handwritten-PDF implementation. All 61 tracked fi
 | `AGENTS.md` | Agent entry point; directs repository workers to SKILL.md. |
 | `README.md` | Mac setup, teacher workflow, choice policy, retention, checks and limitations. |
 | `SKILL.md` | Main project guide and invariants; links these reference files. |
-| `backend/.env.example` | Backend port/origin, local Ollama URL and default vision model. |
+| `backend/.env.example` | Backend port/origin, Gemini default/key and optional local Ollama settings. |
 | `backend/.gitignore` | Exclude node_modules, dist, .env and upload contents. |
 | `backend/package-lock.json` | Locked backend dependency graph; use for reproducible installation. |
 | `backend/package.json` | Node engine, Express/TypeScript/Multer dependencies and dev/build/start/test scripts. |
@@ -82,3 +82,8 @@ Paths in navigation are relative to backend/src unless specified. There is no da
 
 | `backend/scripts/gemini-all.cjs` | One-request full-sheet Gemini trial, strict criterion validation, missing/uncertain results and code-calculated totals/choices. |
 | `backend/tests/gemini-all.test.cjs` | Mock full-sheet transport, fixed totals, choices, uncertainty, invalid marks and no-retry failures. |
+
+| `backend/lib/gemini.cjs` | Shared full-PDF Gemini request, strict result validation and fixed scoring/choices for CLI and web. |
+| `backend/lib/gemini.d.cts` | Typed boundary for the shared CommonJS engine. |
+| `backend/src/services/geminiService.ts` | Provider configuration and approved-rubric web adapter; maps nullable results and usage. |
+| `backend/tests/gemini-integration.test.cjs` | HTTP workflow with local Gemini stub: locked edits, PDF transport, missing/unclear evidence and quota batch stop. |

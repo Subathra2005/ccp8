@@ -37,7 +37,7 @@ test('PDF image transport, fixed scheme approval and independent batch failures'
   res.setHeader('Content-Type','application/json');res.end(JSON.stringify({done:true,message:{content:typeof output==='string'?output:JSON.stringify(output)}}));
  });
  await new Promise(r=>mock.listen(0,'127.0.0.1',r));const port=await freePort();
- const child=spawn(process.execPath,['dist/server.js'],{cwd:require('node:path').resolve(__dirname,'..'),env:{...process.env,PORT:String(port),OLLAMA_BASE_URL:`http://127.0.0.1:${mock.address().port}`},stdio:'pipe'});
+ const child=spawn(process.execPath,['dist/server.js'],{cwd:require('node:path').resolve(__dirname,'..'),env:{...process.env,PORT:String(port),EVALUATION_PROVIDER:'ollama',OLLAMA_BASE_URL:`http://127.0.0.1:${mock.address().port}`},stdio:'pipe'});
  let logs='';child.stderr.on('data',c=>logs+=c);const base=`http://127.0.0.1:${port}/api`;
  async function request(p,body,method='POST'){const response=await fetch(base+p,{method,body});return {status:response.status,data:await response.json()};}
  async function poll(id){for(let i=0;i<800;i++){const {data}=await request('/jobs/'+id,undefined,'GET');if(data.status==='completed')return data.data;if(data.status==='failed')throw new Error(data.message);await sleep(50);}throw new Error('Job timed out');}

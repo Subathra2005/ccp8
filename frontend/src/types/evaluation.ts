@@ -44,23 +44,27 @@ export interface CriterionAward {
 export interface QuestionEvaluation {
   questionNumber: string;
   maximumMarks: number;
-  obtainedMarks: number;
-  status: "correct" | "partial" | "incorrect" | "unreadable" | "unanswered";
+  obtainedMarks: number | null;
+  status: "correct" | "partial" | "incorrect" | "unreadable" | "unanswered" | "not_evaluated";
   confidence: "high" | "medium" | "low";
   studentAnswer: string;
   reason: string;
   methodAssessment: string;
   finalAnswerAssessment: string;
   diagramAssessment: string;
-  criteria: (CriterionAward & { description: string; maximumMarks: number })[];
+  criteria: (Omit<CriterionAward, "obtainedMarks"> & { obtainedMarks: number | null; description: string; maximumMarks: number })[];
   sourcePages: number[];
-  counted: boolean;
+  counted: boolean | null;
   manualReviewRequired: boolean;
 }
 export interface FinalEvaluation {
-  totalMarks: number;
+  totalMarks: number | null;
   maximumMarks: number;
-  percentage: number;
+  percentage: number | null;
+  provider?: string;
+  model?: string;
+  elapsedSeconds?: number;
+  usage?: Record<string, unknown> | null;
   questions: QuestionEvaluation[];
   manualReviewRequired: boolean;
   warnings: string[];
