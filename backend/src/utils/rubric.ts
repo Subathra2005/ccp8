@@ -35,7 +35,7 @@ export function validateRubric(value: unknown, pageCount?: number): Rubric {
       );
     if (
       !Array.isArray(q.keyPages) ||
-      !q.keyPages.length ||
+      (pageCount !== undefined && pageCount !== 0 && !q.keyPages.length) ||
       q.keyPages.some(
         (p) =>
           !Number.isInteger(p) ||

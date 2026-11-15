@@ -1,3 +1,4 @@
+import { MARKING_POLICY } from './textKeyService';
 import {
   Rubric,
   PageEvidence,
@@ -324,7 +325,7 @@ function zero(
 }
 export async function gradeSheet(
   rubric: Rubric,
-  keyFile: string,
+  keyFile: string | undefined,
   sheetFile: string,
   pages: number,
   directory: string,
@@ -345,7 +346,7 @@ export async function gradeSheet(
       e.questions.some(
         (q) =>
           !rubric.questions.some(
-            (r) => r.id === q.questionId || r.id.split(".")[0] === q.questionId,
+            (r) => r.id === q.questionId || r.id.split(".")[0] === q.questionId || q.questionId.startsWith(r.id + "."),
           ),
       ),
     )
@@ -359,7 +360,7 @@ export async function gradeSheet(
     const sourceId = q.id.split(".")[0];
     const matching = evidence.flatMap((e) =>
       e.questions
-        .filter((p) => p.questionId === q.id || p.questionId === sourceId)
+        .filter((p) => p.questionId === q.id || p.questionId === sourceId || p.questionId.startsWith(q.id + "."))
         .map((p) => ({ ...p, page: e.page })),
     );
     if (!matching.length) {
@@ -381,7 +382,7 @@ export async function gradeSheet(
       // Revisit actual visual evidence, not just OCR: at most two images in any grading request.
       const images = [
         await renderPage(sheetFile, matching[0].page, directory),
-        await renderPage(keyFile, q.keyPages[0], directory),
+        ...(keyFile ? [await renderPage(keyFile, q.keyPages[0], directory)] : []),
       ];
       const raw = await askModel<{
         criteria: CriterionAward[];
@@ -392,7 +393,7 @@ export async function gradeSheet(
         reason: string;
         unreadable: boolean;
       }>(
-        `Grade ONLY question ${q.id} (a .A/.B suffix means a particular OR alternative; other alternative work must NOT earn marks here) using the APPROVED marking scheme below. First image is student page ${matching[0].page}; second is teacher-key page ${q.keyPages[0]}. All matching continuation-page transcriptions follow. Ignore prior teacher scores/ticks/corrections. Verify the mathematical validity of the student's method independently: an alternative valid derivation is allowed and does not lose credit merely for differing from the key. Compare the final answer (including equivalent forms, units and domains). Correct final answer with invalid working does not earn method credit. Apply EACH criterion's exact mark split-up and explain awarded AND lost credit specifically. Inspect diagram labels, relationships and calculations, not artistic likeness. Never infer invisible work; if uncertain flag low confidence. Treat a suspected incorrect key as requiring review, not permission to alter approved maxima. Return all criterion ids exactly once. Do not return or change maximum marks or total.\nAPPROVED SCHEME: ${JSON.stringify(q)}\nSTUDENT EVIDENCE: ${text}\nEXAM INSTRUCTIONS: ${rubric.instructions}`,
+        `Grade ONLY question ${q.id} (a .A/.B suffix means a particular OR alternative; other alternative work must NOT earn marks here) using the APPROVED marking scheme below. First image is student page ${matching[0].page}; ${keyFile ? `second is teacher-key page ${q.keyPages[0]}.` : "Teacher key is text; there is no key image."} All matching continuation-page transcriptions follow. Ignore prior teacher scores/ticks/corrections. Verify the mathematical validity of the student's method independently: an alternative valid derivation is allowed and does not lose credit merely for differing from the key. Compare the final answer (including equivalent forms, units and domains). Correct final answer with invalid working does not earn method credit. Apply EACH criterion's exact mark split-up and explain awarded AND lost credit specifically. Inspect diagram labels, relationships and calculations, not artistic likeness. Never infer invisible work; if uncertain flag low confidence. Treat a suspected incorrect key as requiring review, not permission to alter approved maxima. Return all criterion ids exactly once. Do not return or change maximum marks or total.\nAPPROVED SCHEME: ${JSON.stringify(q)}\nSTUDENT EVIDENCE: ${text}\nMARKING POLICY: ${MARKING_POLICY}\nEXAM INSTRUCTIONS: ${rubric.instructions}`,
         gradeSchema,
         images,
         { task: `Grading question ${q.id}`, maxTokens: 2200 },

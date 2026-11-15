@@ -92,7 +92,7 @@ export default function App() {
       <main className="container py-4" style={{ maxWidth: 1100 }}>
         <h1>One answer key. Multiple answer sheets.</h1>
         <p className="text-muted">
-          Read handwritten PDFs, check the marking scheme, then evaluate each
+          Load a TXT key, check the marking scheme, then evaluate each
           student with reasons for every mark.
         </p>
         <div className="alert alert-info">
@@ -112,7 +112,7 @@ export default function App() {
             <div className="card-body p-4">
               <h2 className="h4">2. Review and lock the marking scheme</h2>
               <p>
-                Compare this draft with your PDF. Correct misread answers, page
+                Compare this draft with your TXT key. Check answers, source
                 numbers, question marks and subpart/step split-ups. Question ids
                 must match the student labels (for example 20). Criteria
                 describe the subparts. Nothing is graded until you approve.
@@ -145,7 +145,7 @@ export default function App() {
                           <th>Question</th>
                           <th>Maximum</th>
                           <th>Split-up</th>
-                          <th>Key pages</th>
+                          <th>Key source</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -170,7 +170,7 @@ export default function App() {
                               </td>
                               <td>
                                 {Array.isArray(q.keyPages)
-                                  ? q.keyPages.join(", ")
+                                  ? q.keyPages.length ? q.keyPages.join(", ") : "TXT"
                                   : "Invalid pages"}
                               </td>
                             </tr>
@@ -180,6 +180,7 @@ export default function App() {
                   </div>
                 </>
               )}
+              <details className="mb-3"><summary>Marking policy to approve</summary><p>{preview?.instructions}</p></details>
               <label className="form-label" htmlFor="scheme">
                 Editable marking scheme (JSON)
               </label>
@@ -204,7 +205,7 @@ export default function App() {
                 alternatives before approval.
               </p>
               <details className="my-3">
-                <summary>Page-by-page transcription for checking</summary>
+                <summary>Source evidence (TXT key content is in the scheme)</summary>
                 {draft.evidence.map((e) => (
                   <div key={e.page}>
                     <h3 className="h6 mt-3">Key page {e.page}</h3>

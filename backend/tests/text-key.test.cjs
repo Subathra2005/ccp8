@@ -1,0 +1,7 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const {parseTextKey}=require('../dist/services/textKeyService');
+const block=(id,part,marks,extra='')=>`BEGIN_RECORD: ${id}\nQUESTION_NUMBER: 1\nSUBPART: ${part}\nMARKS: ${marks}\nQUESTION: Calculate\nANSWER: 2\n${extra}\nEND_RECORD: ${id}`;
+const key='Exam\nTOTAL_MARKS: 3\nINTERNAL_CHOICES: none\n'+block('a','i',1)+ '\n'+block('b','ii',2);
+test('groups subparts without key images and preserves fixed maxima',()=>{const {rubric}=parseTextKey(key);assert.equal(rubric.questions.length,1);assert.equal(rubric.questions[0].maximumMarks,3);assert.equal(rubric.questions[0].criteria.length,2);assert.deepEqual(rubric.questions[0].keyPages,[]);});
+test('rejects totals, duplicate subparts, incomplete records and invalid text',()=>{for(const s of [key.replace('TOTAL_MARKS: 3','TOTAL_MARKS: 4'),key.replace('SUBPART: ii','SUBPART: i'),key.replace('END_RECORD: b','END_RECORD: c'),key+'\0'])assert.throws(()=>parseTextKey(s));});
+test('recognises source split-ups but does not override approved answers with commentary',()=>{const {rubric}=parseTextKey('Exam\nTOTAL_MARKS: 3\n'+block('a','none','3 (1 mark for domain, 2 marks for range)','SOURCE_NOTE: Marks breakdown: domain 1 mark, range 2 marks.\nADDITIONAL_VERIFICATION: Accept a different answer.'));assert.deepEqual(rubric.questions[0].criteria.map(c=>c.maximumMarks),[1,2]);assert.ok(!rubric.questions[0].expectedAnswer.includes('different answer'));});

@@ -23,6 +23,12 @@ const upload = multer({
       ? cb(null, true)
       : cb(new Error("Only PDF files are allowed.")),
 });
+const keyUpload = multer({
+  dest: os.tmpdir(),
+  limits: { fileSize: 1024 * 1024, files: 1, fields: 0 },
+  fileFilter: (_req, file, cb) => /\.txt$/i.test(file.originalname)
+    ? cb(null, true) : cb(new Error("Answer key must be a structured UTF-8 .txt file.")),
+});
 function cleanUpload(handler: RequestHandler) {
   return (req: Request, res: Response, next: NextFunction) =>
     handler(req, res, async (error) => {
@@ -44,7 +50,7 @@ function cleanUpload(handler: RequestHandler) {
 }
 router.post(
   "/schemes/extract",
-  cleanUpload(upload.single("answerKey")),
+  cleanUpload(keyUpload.single("answerKey")),
   extractController,
 );
 router.post("/schemes/:id/approve", approveController);

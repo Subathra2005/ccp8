@@ -4,7 +4,7 @@ One React page in App.tsx, normally `http://localhost:5173/`. Upload, marking-sc
 
 | State | Contents | Action |
 |---|---|---|
-| Initial | AI Answer Evaluator navbar, one-key/multiple-sheets heading, local processing guidance, key uploader | Upload one PDF and Read answer key |
+| Initial | AI Answer Evaluator navbar, one-key/multiple-sheets heading, local processing guidance, key uploader | Upload one TXT and Read answer key |
 | Extracting | Disabled uploader, spinner and polled job message | Wait; no cancellation or ETA |
 | Review | Draft title/fixed total, question/max/split-up/page table, extraction warnings, editable scheme JSON, expandable page transcriptions | Correct scheme; checkbox confirms key answers, total, split-ups, diagrams, choices and best-N policy |
 | Approving | Disabled review controls | Backend validates and locks rubric |
@@ -16,7 +16,7 @@ One React page in App.tsx, normally `http://localhost:5173/`. Upload, marking-sc
 
 ## Components
 
-- `FileUpload.tsx`: reusable key or multi-sheet uploader. Accept PDF MIME, 20 MiB, single or ≤10 files. Clear stored selection on invalid replacement (fixes the former stale-file bug). List filename and size, disable during work.
+- `FileUpload.tsx`: reusable key or multi-sheet uploader. Accept one .txt key (1 MiB) or ≤10 student PDFs (20 MiB each). Clear stored selection on invalid replacement (fixes the former stale-file bug). List filename and size, disable during work.
 - `App.tsx`: own draft/editor/approval/results/loading/progress/error state. No storage or router. Scheme edits reset confirmation; server approval is required. Start different key clears client state; server session expires later.
 - `ScoreCard.tsx`: total / fixed maximum, percentage and progress. Prominent provisional-result warning when review is required; show all transcription warnings.
 - `QuestionResult.tsx`: question marks/status, counted/excluded-choice flag, review badge, explanation, criterion table (awarded/max and why), method assessment, final answer assessment, diagram assessment. Expand source-page transcription and confidence.
@@ -25,4 +25,4 @@ One React page in App.tsx, normally `http://localhost:5173/`. Upload, marking-sc
 
 Global CSS includes pre-wrapped evidence and top-aligned table cells. Tables scroll horizontally inside their own responsive container. Existing App.css and starter artwork are unused by TSX. index.html still provides root div, favicon and entry module. There is no PDF annotation/editor, editable awarded marks, export or formal review-submission screen. Mathematical transcription is displayed as plain text/LaTeX source, not a symbolic-math renderer.
 
-The current review editor is JSON plus a readable summary table. Teachers compare it with their original PDF externally. It does not yet offer a dedicated form editor or embedded PDF viewer. Do not describe this as automatic approval or a polished one-click review flow.
+The current review editor is JSON plus a readable summary table. Teachers compare it with their original TXT externally. It does not yet offer a dedicated form editor or embedded PDF viewer. Do not describe this as automatic approval or a polished one-click review flow.

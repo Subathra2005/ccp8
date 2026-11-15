@@ -1,6 +1,6 @@
 # Complete repository map
 
-This inventory accompanies the handwritten-PDF implementation. All 51 tracked files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
+This inventory accompanies the handwritten-PDF implementation. All 54 tracked files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
 
 | Path | Purpose |
 |---|---|
@@ -68,3 +68,7 @@ This inventory accompanies the handwritten-PDF implementation. All 51 tracked fi
 | Add persistence | services/jobStore.ts | Controller lifecycle, retention policy, browser recovery |
 
 Paths in navigation are relative to backend/src unless specified. There is no database, CI workflow, container/deployment configuration, account system or other application page.
+
+| `backend/src/services/textKeyService.ts` | Direct UTF-8 structured key parsing, subpart grouping, explicit criteria and flexible marking policy. |
+| `backend/tests/text-key.test.cjs` | Parser, totals, duplicate/subpart and source-split regressions. |
+| `docs/ccp8/text-key.md` | Supported TXT format and agreed grading policy. |

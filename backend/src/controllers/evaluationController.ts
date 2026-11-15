@@ -1,9 +1,8 @@
+import { parseTextKey } from '../services/textKeyService';
 import { Request, Response } from "express";
 import fs from "node:fs/promises";
 import { inspectPdf } from "../services/pdfService";
 import {
-  readDocument,
-  extractRubric,
   gradeSheet,
 } from "../services/evaluationService";
 import {
@@ -18,31 +17,19 @@ export async function extractController(req: Request, res: Response) {
   if (!req.file)
     return res
       .status(400)
-      .json({ success: false, message: "Upload an answerKey PDF." });
+      .json({ success: false, message: "Upload a structured answerKey TXT file." });
   const file = req.file;
   let session: Awaited<ReturnType<typeof createSession>> | undefined;
   try {
-    const pages = await inspectPdf(file.path);
+    const draft = parseTextKey(await fs.readFile(file.path, "utf8"));
+    const pages = 0;
     session = await createSession(file.path, pages);
     const current = session;
     const jobId = enqueue("Reading teacher answer key", async (update) => {
       try {
-        update(`Reading ${pages} answer-key pages sequentially`);
-        const evidence = await readDocument(
-          current.keyFile,
-          pages,
-          current.directory,
-          "key",
-          update,
-        );
-        update("Extracting marking scheme");
-        const draft = await extractRubric(evidence, update);
-        const warnings = [
-          ...draft.warnings,
-          ...evidence.flatMap((e) =>
-            e.warnings.map((w) => `Page ${e.page}: ${w}`),
-          ),
-        ];
+        update("Validating TXT scheme (no model extraction)");
+        const evidence: never[] = [];
+        const warnings = [...draft.warnings];
         try {
           validateRubric(draft.rubric, pages);
         } catch (error) {
@@ -141,7 +128,7 @@ export async function evaluateController(req: Request, res: Response) {
               const pages = await inspectPdf(file.path);
               const data = await gradeSheet(
                 rubric,
-                session.keyFile,
+                undefined,
                 file.path,
                 pages,
                 session.directory,

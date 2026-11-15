@@ -29,7 +29,7 @@ export async function createSession(keyFile: string, pages: number) {
   const session: Session = {
     id: randomUUID(),
     directory,
-    keyFile: path.join(directory, "key.pdf"),
+    keyFile: path.join(directory, pages === 0 ? "key.txt" : "key.pdf"),
     pages,
     expires: Date.now() + TTL,
     busy: true,

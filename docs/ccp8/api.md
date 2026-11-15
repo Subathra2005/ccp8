@@ -1,13 +1,13 @@
 # HTTP contracts
 
-This reference accompanies the handwritten-PDF implementation (14 November 2026). Base URL defaults to `http://localhost:5001/api`. No application auth exists. Session/job ids are random UUIDs and must be kept private in this local workflow.
+This reference accompanies the TXT-key / handwritten-student-PDF implementation (15 November 2026). Base URL defaults to `http://localhost:5001/api`. No application auth exists. Session/job ids are random UUIDs and must be kept private in this local workflow.
 
 ## Complete endpoint inventory
 
 | Method | Path | Request | Response |
 |---|---|---|---|
 | GET | `/api/health` | None | 200 `{success:true,message,model}`; process check only |
-| POST | `/api/schemes/extract` | Multipart single `answerKey` PDF | 202 `{success:true,jobId}` |
+| POST | `/api/schemes/extract` | Multipart single `answerKey` TXT (1 MiB) | 202 `{success:true,jobId}` |
 | GET | `/api/jobs/:id` | Job UUID | 200 `{success:true,id,status,message,data?,expires}`; 404 if expired/missing |
 | POST | `/api/schemes/:id/approve` | JSON `{rubric,confirmed:true}` | 200 `{success:true,sessionId,rubric}` |
 | POST | `/api/evaluate` | Multipart `sessionId` and 1–10 `answerSheets` PDFs | 202 `{success:true,jobId}` |
@@ -17,7 +17,7 @@ No fixed answer-key file, history/list/delete/export/review-update endpoint, sep
 
 ## Upload and transport
 
-Multer writes temporary files to the OS temp directory, accepts PDF MIME, limits each file to 20 MiB, limits ten files, two text fields, and 1 KiB per multipart field. Poppler subsequently checks PDF bytes (`%PDF-`) and 1–30 pages. Frontend applies corresponding input limits. Upload size errors are 413; other Multer rejections are 400. The key is moved into its session directory; student files are deleted after processing.
+Keys accept .txt filenames with a 1 MiB server limit and UTF-8/content validation. Students use PDF MIME. Multer writes temporary files to the OS temp directory and limits each file to 20 MiB, limits ten files, two text fields, and 1 KiB per multipart field. Poppler subsequently checks PDF bytes (`%PDF-`) and 1–30 pages. Frontend applies corresponding input limits. Upload size errors are 413; other Multer rejections are 400. The key is moved into its session directory; student files are deleted after processing.
 
 Backend JSON body limit is 200 KiB. Allow frontend origin via FRONTEND_ORIGIN (default `http://localhost:5173`). Frontend API base is VITE_API_BASE_URL (default `http://localhost:5001/api`). Let the multipart sender set Content-Type/boundary.
 
@@ -49,7 +49,7 @@ This abbreviated example shows the envelope, not an approvable rubric: questions
 | `question`, `expectedAnswer` | Question wording if available; non-empty expected answer including working |
 | `maximumMarks` | Positive finite per-question maximum |
 | `criteria` | Non-empty `{id,description,maximumMarks}` list with unique ids, non-empty descriptions, maxima summing exactly to question maximum (within numeric tolerance) |
-| `keyPages` | Non-empty 1-based integer page references within uploaded key |
+| `keyPages` | Empty array for TXT; legacy PDF references are not used |
 | `diagramRequired` | Boolean |
 | `choiceGroups` | `{id,questionIds,choose}` list; unique ids, known disjoint question ids, equal maxima, 1 ≤ choose < alternatives |
 
@@ -70,7 +70,7 @@ Each question returns questionNumber (string), maximumMarks, obtainedMarks, stat
 
 ## Outbound Ollama contract
 
-Defaults: OLLAMA_BASE_URL=`http://localhost:11434`, OLLAMA_MODEL=`qwen3-vl:2b-instruct`. Native fetch calls `/api/chat` with JSON header, JSON-schema format for structured requests; image transcription instead streams plain text without format, keep_alive=`5m`, options `{seed:42,num_ctx:8192}` with temperature 0 for structured calls, and temperature 0.2 / repeat_penalty 1.05 for vision transcription. Budgets: 1600 for image transcription, 2200 for student transcription organisation/grading, 1800 for indexing/question extraction (default 2400), and a 10-minute per-request timeout. Each request contains system instructions treating document contents as untrusted evidence and a user prompt. Vision requests include base64 PNGs in the user message's `images` array: one for page transcription, at most two for grading (first matched student page then first referenced key page). Index/rubric extraction uses transcribed text without images.
+Defaults: OLLAMA_BASE_URL=`http://localhost:11434`, OLLAMA_MODEL=`qwen3-vl:2b-instruct`. Native fetch calls `/api/chat` with JSON header, JSON-schema format for structured requests; image transcription instead streams plain text without format, keep_alive=`5m`, options `{seed:42,num_ctx:8192}` with temperature 0 for structured calls, and temperature 0.2 / repeat_penalty 1.05 for vision transcription. Budgets: 1600 for image transcription, 2200 for student transcription organisation/grading, 1800 for indexing/question extraction (default 2400), and a 10-minute per-request timeout. Each request contains system instructions treating document contents as untrusted evidence and a user prompt. Vision requests include base64 PNGs in the user message's `images` array: one for page transcription, one for TXT-key grading (first matched student page). The TXT key is parsed in code without model calls. Legacy PDF indexing helpers are unused by the upload route.
 
 Non-OK responses, empty message content and JSON parse failures fail explicitly. Truncated text requests retry once with a compact-output instruction at the same budget; partial JSON is never accepted. Truncated page readings split into sequential overlapping halves, then quarters if needed (maximum two split levels). Image transcription is unconstrained plain text, not image-to-JSON. Keys keep that text directly for indexing. Student transcriptions are organised into headerText/question entries by a separate text-only schema request. Repeated output is detected during streaming and that unsuccessful reading is cancelled early and passed to the crop fallback. Disconnected streams without a completed final event are rejected. Region-recovery warnings remain visible for teacher review. Every request logs its task, elapsed seconds, token count when provided, and stop reason; job messages expose page/region/question progress. Typed interfaces do not replace runtime checks: service validates transcriptions and awards; approval validates the complete rubric. Fixed scoring and seeded structured requests reduce variability but are not a guarantee of identical AI awards or correctness. Maxima/totals remain fixed independently.
 

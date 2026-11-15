@@ -31,8 +31,8 @@ test('PDF image transport, fixed scheme approval and independent batch failures'
   }else if(prompt.startsWith('Index this'))output={title:'Test',totalMarks:40,instructions:'No choices',questions:[{id:'1',keyPages:[1]}],choiceGroups:[],warnings:[]};
   else if(prompt.startsWith('Extract ONLY'))output=question;
   else if(prompt.startsWith('Grade ONLY')){
-   assert.equal(message.images.length,2);assert.ok(studentRead);
-   output={criteria:[{id:'method',obtainedMarks:10,reason:'Half the method is justified; remaining step missing.'},{id:'final',obtainedMarks:10,reason:'Partly correct final answer.'}],confidence:'high',methodAssessment:'Alternative method checked.',finalAnswerAssessment:'Partly correct.',diagramAssessment:'Diagram checked.',reason:'Partial credit.',unreadable:false};
+   assert.equal(message.images.length,1);assert.ok(prompt.includes('Half the question maximum PLUS 0.5'));assert.ok(prompt.includes('Early errors'));assert.ok(studentRead);
+   output={criteria:[{id:'Q1.method',obtainedMarks:10,reason:'Half the method is justified; remaining step missing.'},{id:'Q1.final',obtainedMarks:10,reason:'Partly correct final answer.'}],confidence:'high',methodAssessment:'Alternative method checked.',finalAnswerAssessment:'Partly correct.',diagramAssessment:'Diagram checked.',reason:'Partial credit.',unreadable:false};
   }else throw new Error('Unexpected model prompt');
   res.setHeader('Content-Type','application/json');res.end(JSON.stringify({done:true,message:{content:typeof output==='string'?output:JSON.stringify(output)}}));
  });
@@ -46,11 +46,21 @@ test('PDF image transport, fixed scheme approval and independent batch failures'
   assert.equal((await fetch(base+'/health')).status,200,logs);
   assert.equal((await request('/schemes/extract',new FormData())).status,400);
   const wrong=new FormData();wrong.append('answerKey',new Blob(['bad'],{type:'text/plain'}),'bad.txt');assert.equal((await request('/schemes/extract',wrong)).status,400);
-  const key=process.env.TEST_KEY_PDF?await readFile(process.env.TEST_KEY_PDF):pdf();
+  const key=`Example key
+TOTAL_MARKS: 40
+INTERNAL_CHOICES: none
+BEGIN_RECORD: Q1
+QUESTION_NUMBER: 1
+MARKS: 40
+QUESTION: Example
+ANSWER: Example answer
+DIAGRAM_REQUIRED: true
+MARKING_CRITERIA: [{"id":"method","description":"Method","maximumMarks":20},{"id":"final","description":"Final","maximumMarks":20}]
+END_RECORD: Q1`;
   const sheet=process.env.TEST_SHEET_PDF?await readFile(process.env.TEST_SHEET_PDF):pdf();
-  const form=new FormData();form.append('answerKey',new Blob([key],{type:'application/pdf'}),'key.pdf');
+  const form=new FormData();form.append('answerKey',new Blob([key],{type:'text/plain'}),'key.txt');
   const started=await request('/schemes/extract',form);assert.equal(started.status,202);
-  const draft=await poll(started.data.jobId);assert.equal(draft.rubric.totalMarks,40);
+  const draft=await poll(started.data.jobId);assert.equal(draft.rubric.totalMarks,40);assert.equal(calls.length,0,'TXT key must not call Ollama');
   const approve=async r=>fetch(base+`/schemes/${draft.sessionId}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rubric:r,confirmed:true})});
   assert.equal((await approve({...draft.rubric,totalMarks:50})).status,400);
   assert.equal((await approve(draft.rubric)).status,200);assert.equal((await approve(draft.rubric)).status,400);
@@ -59,9 +69,9 @@ test('PDF image transport, fixed scheme approval and independent batch failures'
   assert.equal(result.results.length,2);assert.equal(result.results[0].success,true);assert.equal(result.results[1].success,false);
   const score=result.results[0].data;assert.equal(score.maximumMarks,40);assert.equal(score.totalMarks,20);assert.equal(score.questions[0].criteria[0].reason,'Half the method is justified; remaining step missing.');assert.equal(score.manualReviewRequired,true);
   const imageCalls=calls.filter(c=>c.messages.at(-1).content.startsWith('Read page'));
-  assert.ok(imageCalls.length>=2);if(process.env.TEST_KEY_PDF)assert.equal(imageCalls.length,process.env.SIMULATE_TRUNCATION==='1'?15:13);
-  if(process.env.SIMULATE_TRUNCATION==='1'){assert.ok(draft.warnings.some(w=>w.includes('overlapping regions')));assert.ok(imageCalls.length>=4);assert.equal(cropCount,2);}
-  const huge=new FormData();huge.append('answerKey',new Blob([Buffer.alloc(21*1024*1024)],{type:'application/pdf'}),'huge.pdf');assert.equal((await request('/schemes/extract',huge)).status,413);
+  assert.ok(imageCalls.length>=1);
+
+  const huge=new FormData();huge.append('answerKey',new Blob([Buffer.alloc(2*1024*1024)],{type:'text/plain'}),'huge.txt');assert.equal((await request('/schemes/extract',huge)).status,413);
   assert.equal((await request('/jobs/missing',undefined,'GET')).status,404);
  }finally{child.kill();await new Promise(resolve=>child.once('exit',resolve));await new Promise(resolve=>mock.close(resolve));}
 });

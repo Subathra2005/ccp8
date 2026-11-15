@@ -1,6 +1,6 @@
 # CCP8 — handwritten answer evaluator
 
-Upload one handwritten PDF answer key, review its extracted marking scheme, and evaluate up to ten handwritten student PDFs against the same approved scheme. Results include each question's criteria/subpart marks, why credit was awarded or deducted, method/final-answer/diagram assessments, and a fixed-total summary.
+Upload one structured UTF-8 TXT answer key, review its directly parsed marking scheme, and evaluate up to ten handwritten student PDFs against the same approved scheme. Results include each question's criteria/subpart marks, why credit was awarded or deducted, method/final-answer/diagram assessments, and a fixed-total summary.
 
 ## Run on a MacBook Air M1 (8 GB)
 
@@ -30,12 +30,12 @@ npm run dev
 
 Open `http://localhost:5173`. The default backend is `http://localhost:5001`; Ollama is `http://localhost:11434`. See `.env.example` in each package for overrides. If the browser origin changes, also set backend FRONTEND_ORIGIN. Do not manually set a multipart Content-Type header.
 
-The 2B vision model is a memory-conscious starting point, not a guarantee of handwriting/math accuracy or a latency benchmark. One model request runs at a time; PDFs are read one page at a time at a maximum dimension of 1800 pixels. Grading revisits the first matched student page and first referenced key page together (at most two images); other pages contribute their separately extracted transcriptions and are flagged for review. Image transcription now streams plain text without a JSON grammar. Answer-key text feeds indexing directly; student text is organised separately. Sustained exact repetition is detected and cancelled early as an unsuccessful reading, not accepted as evidence. Page transcriptions avoid duplicating content. Dense pages that hit the output limit are retried as overlapping image regions automatically (up to two split levels); cropped-page warnings require checking continuations. Status messages identify the current page/region/question, and the backend logs request duration and token counts. Close memory-heavy apps and expect lengthy processing. A larger vision model can be configured on stronger hardware.
+The default model remains qwen3-vl:2b-instruct. Only student PDFs require vision: pages are transcribed sequentially and each question revisits its first matching student image. Continuations and diagrams are flagged for review. Stream repetition detection and bounded crop retries remain. Key preparation skips all model calls; student reading can still be slow on 8 GB. No live speed or accuracy benchmark is claimed.
 
 ## Teacher workflow
 
-1. Upload the teacher's answer key as a PDF (up to 20 MiB and 30 pages).
-2. Review the draft's expected answers, question/criterion marks, page references, diagrams, and choice rules against the original PDF. The editable JSON and page transcriptions allow correction of OCR errors; this review is essential.
+1. Upload the structured TXT key (UTF-8, up to 1 MiB). See [TXT format](docs/ccp8/text-key.md). No Ollama or Poppler call is made to prepare the key.
+2. Review the draft's expected answers, question/criterion marks, page references, diagrams, and choice rules against the original TXT. The editable JSON and page transcriptions allow correction of OCR errors; this review is essential.
 3. Correct missing or conflicting marks. The sum of criterion maxima must equal each question maximum. The paper maximum must equal required question maxima plus the permitted internal choices. The server rejects inconsistent totals instead of guessing or rescaling.
 4. Confirm and lock the scheme. It stays immutable for that session. To revise it, start with the key again.
 5. Upload 1–10 student PDFs for the same scheme. Students are processed sequentially. A failed sheet does not discard successful sheets. Keep the tab open while polling; the status describes the current stage/sheet, not a precise ETA.
@@ -69,10 +69,10 @@ Tests use a controlled Ollama HTTP stub and real Poppler rendering to verify ima
 
 ```bash
 cd backend
-TEST_KEY_PDF=/absolute/path/key.pdf TEST_SHEET_PDF=/absolute/path/student.pdf node --test tests/integration.test.cjs
+TEST_SHEET_PDF=/absolute/path/student.pdf node --test tests/integration.test.cjs
 ```
 
-The optional sample check expects the supplied 8-page key and 5-page sheet. No teacher or student sample PDF is committed to this repository.
+The optional check uses a synthetic TXT key and the selected student PDF. No teacher or student sample PDF is committed to this repository.
 
 ## Agent and API documentation
 

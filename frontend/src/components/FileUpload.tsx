@@ -20,8 +20,8 @@ export default function FileUpload({
         <p>
           {multiple
             ? "Select up to 10 student PDFs for the same approved key."
-            : "Upload the handwritten teacher key, including total marks, split-ups and internal choices."}{" "}
-          PDF only · 20 MiB per file · up to 30 pages per PDF.
+            : "Upload a structured TXT key with questions, answers, marks and split-ups."}{" "}
+          {multiple ? "PDF only · 20 MiB per file · up to 30 pages per PDF." : "UTF-8 TXT only · 1 MiB maximum · no model extraction."}
         </p>
         <label className="form-label" htmlFor={multiple ? "sheets" : "key"}>
           {multiple ? "Student answer sheets" : "Teacher answer key"}
@@ -30,7 +30,7 @@ export default function FileUpload({
           id={multiple ? "sheets" : "key"}
           className="form-control"
           type="file"
-          accept="application/pdf"
+          accept={multiple ? "application/pdf,.pdf" : "text/plain,.txt"}
           multiple={multiple}
           disabled={loading}
           onChange={(e) => {
@@ -41,10 +41,10 @@ export default function FileUpload({
               chosen.length > (multiple ? 10 : 1) ||
               chosen.some(
                 (f) =>
-                  f.type !== "application/pdf" || f.size > 20 * 1024 * 1024,
+                  multiple ? (f.type !== "application/pdf" || f.size > 20 * 1024 * 1024) : (!/\.txt$/i.test(f.name) || f.size > 1024 * 1024),
               )
             ) {
-              setError("Select PDF files within the stated limits.");
+              setError("Select files of the required type within the stated limits.");
               e.target.value = "";
               return;
             }
