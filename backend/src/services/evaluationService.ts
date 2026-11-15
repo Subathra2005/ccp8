@@ -1,3 +1,4 @@
+import { organiseStudentText, StudentReading } from './studentTextService';
 import { MARKING_POLICY } from './textKeyService';
 import {
   Rubric,
@@ -18,50 +19,14 @@ import {
 import { renderPage } from "./pdfService";
 import { calculateFinalScore } from "../utils/scoreCalculator";
 
-// Do not generate the same page twice (whole-page text AND per-question text).
-// Build display/index text deterministically from a single faithful transcription.
-interface PageReading {
-  headerText: string;
-  questions: PageEvidence["questions"];
-  warnings: string[];
-}
-const pageSchema = object({
-  headerText: str,
-  questions: array(
-    object({
-      questionId: str,
-      text: str,
-      diagramDescription: str,
-      uncertain: bool,
-    }),
-  ),
-  warnings: array(str),
-});
-function checkReading(parsed: PageReading, page: number) {
-  if (
-    !parsed ||
-    typeof parsed.headerText !== "string" ||
-    !Array.isArray(parsed.questions) ||
-    !Array.isArray(parsed.warnings) ||
-    parsed.questions.some(
-      (q) =>
-        !q ||
-        typeof q.questionId !== "string" ||
-        typeof q.text !== "string" ||
-        typeof q.diagramDescription !== "string" ||
-        typeof q.uncertain !== "boolean",
-    ) ||
-    parsed.warnings.some((w) => typeof w !== "string")
-  )
-    throw new Error(`Invalid transcription on page ${page}.`);
-  return parsed;
-}
+type PageReading = StudentReading;
 export async function readDocument(
   file: string,
   pages: number,
   directory: string,
   kind: "key" | "student",
   update: (message: string) => void = () => {},
+  knownIds: string[] = [],
 ): Promise<PageEvidence[]> {
   const evidence: PageEvidence[] = [];
   for (let page = 1; page <= pages; page++) {
@@ -106,18 +71,8 @@ export async function readDocument(
                 : [],
             },
           ];
-        update(`Organising ${kind} page ${page}${depth ? " region" : ""}`);
-        const parsed = await askModel<PageReading>(
-          `Organise this page transcription into the supplied JSON schema. No image reading, solving or grading is required. Preserve the transcript exactly; do not repeat it. headerText contains paper totals, section rules and text not tied to a question. questions contains each main numeric questionId such as 20 with all its subparts in text. Keep diagram descriptions; diagramDescription is empty if none. An unidentifiable continuation uses questionId unknown with uncertain true. Preserve [unclear] and flag it. Every source statement must remain in headerText or one question, not both. Do not invent question numbers, marks or missing context. TRANSCRIPTION:\n${transcript}`,
-          pageSchema,
-          [],
-          {
-            task: `Organising ${kind} page ${page}`,
-            maxTokens: 2200,
-            retryCompact: false,
-          },
-        );
-        return [checkReading(parsed, page)];
+        update(`Mapping student page ${page} text to question numbers`);
+        return [await organiseStudentText(transcript, page, knownIds)];
       } catch (error) {
         if (!(error instanceof ModelOutputTruncatedError)) throw error;
         if (depth >= 2 || h < 240)
@@ -337,6 +292,7 @@ export async function gradeSheet(
     directory,
     "student",
     update,
+    rubric.questions.map(q => q.id),
   );
   const warnings = evidence.flatMap((e) =>
     e.warnings.map((w) => `Page ${e.page}: ${w}`),
@@ -354,6 +310,12 @@ export async function gradeSheet(
     warnings.push(
       "Some question labels were not matched to the scheme. Check for omitted or misidentified answers.",
     );
+  for (const page of evidence) {
+    for (const entry of page.questions) {
+      if (entry.questionId === "unknown")
+        warnings.push(`Page ${page.page}: unassigned completed transcription (not automatically graded):\n${entry.text}`);
+    }
+  }
   const results: QuestionEvaluation[] = [];
   for (const q of rubric.questions) {
     update(`Checking question ${q.id}`);

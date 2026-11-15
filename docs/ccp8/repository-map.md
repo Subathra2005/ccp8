@@ -1,6 +1,6 @@
 # Complete repository map
 
-This inventory accompanies the handwritten-PDF implementation. All 54 tracked files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
+This inventory accompanies the handwritten-PDF implementation. All 56 tracked files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
 
 | Path | Purpose |
 |---|---|
@@ -72,3 +72,6 @@ Paths in navigation are relative to backend/src unless specified. There is no da
 | `backend/src/services/textKeyService.ts` | Direct UTF-8 structured key parsing, subpart grouping, explicit criteria and flexible marking policy. |
 | `backend/tests/text-key.test.cjs` | Parser, totals, duplicate/subpart and source-split regressions. |
 | `docs/ccp8/text-key.md` | Supported TXT format and agreed grading policy. |
+
+| `backend/src/services/studentTextService.ts` | Bounded line-boundary mapping; preserves completed OCR and flags unassigned text without vision retries. |
+| `backend/tests/student-text.test.cjs` | Exact text retention, invalid mapping, bounded chunks and no re-reading on mapping truncation. |

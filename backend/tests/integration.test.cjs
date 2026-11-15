@@ -25,9 +25,9 @@ test('PDF image transport, fixed scheme approval and independent batch failures'
    assert.equal(message.images.length,1);assert.equal(Buffer.from(message.images[0],'base64').subarray(1,4).toString(),'PNG');
    studentRead=prompt.includes('student answer sheet')||studentRead;
    output='Total marks 40. Question 1: Example answer. Diagram: Example diagram.';
-  }else if(prompt.startsWith('Organise this')){
+  }else if(prompt.startsWith('Locate question boundaries')){
    assert.equal(message.images,undefined);
-   output={headerText:'Total marks 40.',questions:[{questionId:'1',text:'Example answer',diagramDescription:'Example diagram',uncertain:false}],warnings:[]};
+   output={labels:[{line:1,questionId:'1'}]};
   }else if(prompt.startsWith('Index this'))output={title:'Test',totalMarks:40,instructions:'No choices',questions:[{id:'1',keyPages:[1]}],choiceGroups:[],warnings:[]};
   else if(prompt.startsWith('Extract ONLY'))output=question;
   else if(prompt.startsWith('Grade ONLY')){

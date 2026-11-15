@@ -17,7 +17,7 @@ Read this entry point before working on CCP8. Describe the current implementatio
 
 ## Preserve these invariants
 
-1. Send actual rendered PDF images to a vision-capable Ollama model, never instructions alone. Use unconstrained streamed plain text for image transcription; parse structured TXT keys without a model and organise student text in a separate text-only schema request. Preserve early repetition cancellation, complete-stream checks and bounded region fallback; never accept truncated evidence or partial JSON. Use `qwen3-vl:2b-instruct` as the default for an 8 GB M1 Mac; do not substitute a text-only model.
+1. Send actual rendered PDF images to a vision-capable Ollama model, never instructions alone. Use unconstrained streamed plain text for image transcription; parse structured TXT keys without a model and map student question boundaries in small text-only requests; copy the completed transcription in code. Preserve early repetition cancellation, complete-stream checks and bounded region fallback; never accept truncated evidence or partial JSON. Use `qwen3-vl:2b-instruct` as the default for an 8 GB M1 Mac; do not substitute a text-only model.
 2. Parse the TXT key once per session, then require teacher correction/approval of its total, expected answers, split-ups, page references and choices. Treat approval as a required product step. Never infer approval from a successful extraction.
 3. Lock the approved rubric on the backend. Never trust model-provided totals or maximum marks. Sum validated criterion awards in code against the locked maxima and reject inconsistent schemes.
 4. Apply choice groups using best N equal-mark complete alternatives, with stable key-order tie breaking. Require explicit teacher approval of this policy. Reject overlapping, nested or unequal-mark groups; explain the limitation rather than guessing.
@@ -35,3 +35,6 @@ Use React/TypeScript/Vite/Bootstrap in frontend and Express/TypeScript/Multer/Po
 ## Work carefully
 
 Trace TXT key upload → direct parsing → rubric draft → validation/approval → student batch → visual and text evidence → criterion awards → fixed scoring → UI. Read current AGENTS.md and relevant source files. Run backend tests plus frontend build/lint for changes affecting this flow. Report which checks used a stub versus a live model. Never claim end-to-end handwriting accuracy or M1 speed without a live hardware test.
+
+
+Student mapping correction: image crop retries apply only to incomplete vision transcription. Completed text is mapped via `studentTextService.ts` (600 output tokens, no retry, bounded chunks). Invalid/truncated mappings retain complete unassigned text in result warnings for teacher review instead of aborting the sheet. This avoids regenerating all student work as JSON. Live model speed and mapping accuracy still need hardware testing.

@@ -79,3 +79,6 @@ The optional check uses a synthetic TXT key and the selected student PDF. No tea
 Read [SKILL.md](SKILL.md) and [docs/ccp8](docs/ccp8/) before modifying the project. The former text-key/Gemini-named implementation has been replaced by an image-bearing Ollama workflow; no fixed `answer_key.txt` is read.
 
 Official provider references: [Ollama chat API](https://docs.ollama.com/api/chat), [Qwen3-VL 2B instruct](https://ollama.com/library/qwen3-vl:2b-instruct).
+
+
+Student mapping correction: image crop retries apply only to incomplete vision transcription. Completed text is mapped via `studentTextService.ts` (600 output tokens, no retry, bounded chunks). Invalid/truncated mappings retain complete unassigned text in result warnings for teacher review instead of aborting the sheet. This avoids regenerating all student work as JSON. Live model speed and mapping accuracy still need hardware testing.
