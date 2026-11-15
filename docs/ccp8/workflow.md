@@ -21,7 +21,7 @@ Only EVALUATION_PROVIDER=ollama calls evaluationService.ts: rendered-image trans
 
 ## Scoring invariants
 
-validateRubric enforces unique IDs, finite positive maxima, criterion sums and paper sums. Choice groups must be disjoint, equal-mark complete alternatives; nested, overlapping and unequal choices are rejected. Gemini's shared runtime validator rejects duplicate/unknown questions and invalid/out-of-bounds criteria instead of clamping invented scores. Maxima and totals come only from the locked scheme. No rounding to a half-mark grid is imposed; arithmetic sums round to four decimals and percentages to two.
+validateRubric enforces unique IDs, finite positive maxima, criterion sums and paper sums. Choice groups must be disjoint, equal-mark complete alternatives; nested, overlapping and unequal choices are rejected. Gemini's shared runtime validator leaves duplicate questions unscored and reports unknown labels, preserving other assessments but withholding the total. It constrains output IDs to the rubric and normalizes only unambiguous numeric-label formatting. Invalid/out-of-bounds criteria are still rejected rather than clamped. Maxima and totals come only from the locked scheme. No rounding to a half-mark grid is imposed; arithmetic sums round to four decimals and percentages to two.
 
 Gemini review flags withhold scores. Do not equate an unflagged response with proven mathematical correctness. Teachers still compare results to original handwriting. Required diagrams and multi-page work are visible to Gemini in the complete PDF, unlike the older first-page-only comparison.
 

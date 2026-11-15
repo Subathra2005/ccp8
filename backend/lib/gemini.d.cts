@@ -19,7 +19,7 @@ export interface GeminiReport {
   model:string;
   elapsed_seconds:number;
   usage:Record<string,unknown>|null;
-  result:{maximum_marks:number; total_marks:number|null; review_required:boolean; questions:GeminiQuestion[]};
+  result:{maximum_marks:number; total_marks:number|null; review_required:boolean; warnings:string[]; questions:GeminiQuestion[]};
 }
 export function evaluatePdf(options:{pdf:Buffer; rubric:Rubric; apiKey:string; pages:number; fetchImpl?:typeof fetch}):Promise<GeminiReport>;
 export function validateResult(data:unknown,rubric:Rubric,pages:number):GeminiReport['result'];

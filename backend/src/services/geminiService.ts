@@ -45,7 +45,7 @@ export async function gradeGeminiSheet(
     maximumMarks:rubric.totalMarks, totalMarks:result.total_marks,
     percentage:result.total_marks === null ? null : Math.round(result.total_marks/rubric.totalMarks*10000)/100,
     manualReviewRequired:result.review_required,
-    warnings:result.review_required ? ['Total withheld until unclear or incomplete question assessments have been reviewed.'] : [],
+    warnings:[...result.warnings, ...(result.review_required ? ['Total withheld until unclear or incomplete question assessments have been reviewed.'] : [])],
     questions:result.questions.map(q=>({
       questionNumber:q.question, maximumMarks:q.maximum_marks, obtainedMarks:q.awarded_marks,
       status:q.status === 'assessed' ? q.awarded_marks === null ? 'unreadable' : q.awarded_marks === q.maximum_marks ? 'correct' : q.awarded_marks === 0 ? 'incorrect' : 'partial' : q.status,

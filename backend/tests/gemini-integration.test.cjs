@@ -25,7 +25,7 @@ test('Gemini web flow uses locked edits, direct PDFs, null scores and stops on q
   assert.ok(data.input[1].text.includes('"maximumMarks":4'));
   if(mode==='quota'){res.writeHead(429,{'Content-Type':'application/json'});res.end(JSON.stringify({error:{message:'test-secret quota exhausted'}}));return;}
   const question={question:'1',status:'assessed',source_pages:[1],student_steps_latex:['x=1'],uncertain_symbols:[],method_assessment:'Valid alternate method',final_answer_assessment:'Correct',diagram_assessment:'Not applicable',brief_marking_reason:'Valid working',review_required:mode==='uncertain',criteria:[{id:'Q1',awarded_marks:4,reason:'Correct'}]};
-  res.setHeader('Content-Type','application/json');res.end(JSON.stringify({status:'completed',output_text:JSON.stringify({questions:mode==='missing'?[]:[question]}),usage:{total_tokens:100}}));
+  res.setHeader('Content-Type','application/json');res.end(JSON.stringify({status:'completed',output_text:JSON.stringify({questions:mode==='missing'?[]:mode==='duplicate'?[question,{...question,question:'Q1'}]:mode==='unknown'?[question,{...question,question:'99'}]:[question]}),usage:{total_tokens:100}}));
  });
  await new Promise(r=>mock.listen(0,'127.0.0.1',r));const port=await freePort();
  // Only the test child redirects the hard-coded Google endpoint to a local stub.
@@ -46,6 +46,8 @@ test('Gemini web flow uses locked edits, direct PDFs, null scores and stops on q
   let r=await batch(2,true);assert.equal(calls,1);assert.equal(r.results[0].data.totalMarks,4);assert.equal(r.results[0].data.provider,'gemini');assert.equal(r.results[0].data.usage.total_tokens,100);assert.equal(r.results[1].success,false);
   mode='uncertain';r=await batch();assert.equal(r.results[0].data.totalMarks,null);assert.equal(r.results[0].data.questions[0].criteria[0].obtainedMarks,null);
   mode='missing';r=await batch();assert.equal(r.results[0].data.totalMarks,null);assert.equal(r.results[0].data.questions[0].status,'not_evaluated');
+  mode='duplicate';r=await batch();assert.equal(r.results[0].success,true);assert.equal(r.results[0].data.questions[0].obtainedMarks,null);assert.match(r.results[0].data.questions[0].reason,/Duplicate/);
+  mode='unknown';r=await batch();assert.equal(r.results[0].data.totalMarks,null);assert.ok(r.results[0].data.warnings.some(w=>w.includes('99')));
   mode='quota';const before=calls;r=await batch(3);assert.equal(calls,before+1);assert.ok(r.results.every(x=>!x.success));assert.match(r.results[1].message,/batch stopped/);assert.ok(!JSON.stringify(r).includes('test-secret'));
  } finally {child.kill();await new Promise(r=>child.once('exit',r));await new Promise(r=>mock.close(r));await fs.rm(temporary,{recursive:true,force:true});}
 });
