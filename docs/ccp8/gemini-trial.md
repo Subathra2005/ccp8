@@ -1,4 +1,4 @@
-# Gemini Q19 API trial
+# Gemini API grading trials
 
 This is an opt-in command-line experiment, not a change to the web app's Ollama provider. It sends the original PDF and the parsed Q19 reference from your TXT key to Google in one request. It does not use OCR or make automatic retries. Requires Node 22.12+, npm dependencies, a backend build and Poppler for local PDF validation.
 
@@ -31,4 +31,22 @@ Official contracts checked 15 November 2026:
 - https://aistudio.google.com/docs/structured-output
 - https://aistudio.google.com/api-reference/interactions-api/create-interaction
 
-Tests mock Gemini. No live request was made by the coding agent. Compare the result against the source PDF before expanding to a complete sheet or changing the web app.
+Tests mock Gemini. No live request was made by the coding agent. Compare every proposed mark against the source PDF before changing the web app.
+
+## Full-sheet trial
+
+After the successful local Q19 trial, run all questions with the same model:
+
+```bash
+git pull origin main
+npm run build
+node scripts/gemini-all.cjs "/absolute/path/Answer sheet.pdf" "/absolute/path/Answer key.txt"
+```
+
+These commands assume your terminal is already in `backend`. The script sends the original PDF and the entire parsed TXT rubric in one request. It uses the same `.env` key, file limits and no-retry policy as Q19. The request allows 24,576 output tokens and a 10-minute timeout; this is an upper bound, not a latency estimate. A timeout may still consume provider quota, so check usage before rerunning.
+
+The JSON report under `backend/trial-results/gemini-all-<timestamp>.json` includes per-question visible steps, method/final-answer/diagram assessments, criterion awards with reasons, and question totals calculated in code. Maximum marks and the paper denominator come only from the parsed key. Internal choices select best N with stable key-order tie breaking. Check the printed key warnings and choice policy before relying on a score.
+
+Missing questions become `not_evaluated`; ambiguous, unreadable or review-required assessments have null scores. Any unresolved question withholds the paper total (including unresolved choice alternatives). Only a model-confirmed genuinely unanswered question receives zero for absent work. Unknown/duplicate question IDs, invalid criteria, out-of-range marks and truncated responses are rejected. A complete response still requires human comparison against the handwriting: schema validation cannot establish mathematical or visual accuracy.
+
+The agent tested transport and scoring using mocks, not a live full-sheet API request. The web application continues to use Ollama.

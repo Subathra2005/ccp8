@@ -1,6 +1,6 @@
 # Complete repository map
 
-This inventory accompanies the handwritten-PDF implementation. All 59 tracked files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
+This inventory accompanies the handwritten-PDF implementation. All 61 tracked files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
 
 | Path | Purpose |
 |---|---|
@@ -79,3 +79,6 @@ Paths in navigation are relative to backend/src unless specified. There is no da
 | `backend/scripts/gemini-q19.cjs` | Opt-in one-request Gemini PDF/Q19 trial with local key, bounds and error handling. |
 | `backend/tests/gemini-trial.test.cjs` | Mocked PDF transport, key content, bounds, uncertainty, incomplete response and billing error checks. |
 | `docs/ccp8/gemini-trial.md` | Local credential setup, trial commands, limits and API references. |
+
+| `backend/scripts/gemini-all.cjs` | One-request full-sheet Gemini trial, strict criterion validation, missing/uncertain results and code-calculated totals/choices. |
+| `backend/tests/gemini-all.test.cjs` | Mock full-sheet transport, fixed totals, choices, uncertainty, invalid marks and no-retry failures. |
