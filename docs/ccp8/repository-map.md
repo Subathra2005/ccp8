@@ -1,6 +1,6 @@
 # Complete repository map
 
-This inventory accompanies the handwritten-PDF implementation. All 56 tracked files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
+This inventory accompanies the handwritten-PDF implementation. All 59 tracked files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
 
 | Path | Purpose |
 |---|---|
@@ -75,3 +75,7 @@ Paths in navigation are relative to backend/src unless specified. There is no da
 
 | `backend/src/services/studentTextService.ts` | Bounded line-boundary mapping; preserves completed OCR and flags unassigned text without vision retries. |
 | `backend/tests/student-text.test.cjs` | Exact text retention, invalid mapping, bounded chunks and no re-reading on mapping truncation. |
+
+| `backend/scripts/gemini-q19.cjs` | Opt-in one-request Gemini PDF/Q19 trial with local key, bounds and error handling. |
+| `backend/tests/gemini-trial.test.cjs` | Mocked PDF transport, key content, bounds, uncertainty, incomplete response and billing error checks. |
+| `docs/ccp8/gemini-trial.md` | Local credential setup, trial commands, limits and API references. |
