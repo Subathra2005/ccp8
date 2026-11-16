@@ -15,6 +15,8 @@ export function parseTextKey(input:string):{rubric:Rubric;warnings:string[]} {
  if(!blocks.length || blocks.length>200 || blocks.length!==(text.match(/^BEGIN_RECORD:/gm)||[]).length || blocks.length!==(text.match(/^END_RECORD:/gm)||[]).length) throw new Error('Use 1–200 complete BEGIN_RECORD / END_RECORD blocks.');
  const header=fields(text.slice(0,blocks[0].index)); const warnings:string[]=[];
  const rubric:Rubric={title:text.split('\n')[0].trim(),totalMarks:Number(header.TOTAL_MARKS),questions:[],choiceGroups:[],instructions:MARKING_POLICY+'\n'+(header.INSTRUCTIONS||'')};
+ for(const [field,property] of [['SUBJECT','subject'],['CLASS','classLevel'],['BOARD','board'],['SYLLABUS','syllabus'],['LANGUAGE','language']] as const) if(header[field]) rubric[property]=header[field].trim();
+ if(header.LESSONS){try{rubric.lessons=JSON.parse(header.LESSONS);}catch{throw new Error('LESSONS must be a JSON array of lesson names.');}}
  if(header.CHOICE_GROUPS){try{rubric.choiceGroups=JSON.parse(header.CHOICE_GROUPS);}catch{throw new Error('CHOICE_GROUPS must be a JSON array.');}}
  else if(header.INTERNAL_CHOICES?.trim().toLowerCase()!=='none') warnings.push('Confirm all questions are compulsory, or add choiceGroups before approval.');
  const seen=new Set<string>(); const partsSeen=new Set<string>();
@@ -27,6 +29,7 @@ export function parseTextKey(input:string):{rubric:Rubric;warnings:string[]} {
  if(f.MARKING_CRITERIA){try{criteria=JSON.parse(f.MARKING_CRITERIA);}catch{throw new Error(`Invalid MARKING_CRITERIA in ${record}.`);} if(!Array.isArray(criteria))throw new Error(`Invalid criteria in ${record}.`);criteria=criteria.map(c=>({...c,id:record+'.'+c.id}));}
  else {const split=/(?:Marks breakdown[^:]*:\s*)([^.\n]+)/i.exec(f.SOURCE_NOTE||'');const parts=split?[...split[1].matchAll(/([a-z][a-z ]*?)\s+(\d+(?:\.\d+)?)\s+marks?/gi)]:[];
  criteria=parts.length?parts.map((p,i)=>({id:record+'.'+(i+1),description:p[1].trim(),maximumMarks:Number(p[2])})):[{id:record,description:`Part ${part}: ${f.ANSWER}. Apply flexible partial credit where working is required.`,maximumMarks:marks}];}
+ criteria=criteria.map(c=>({...c, ...(c.lesson||f.LESSON ? {lesson:c.lesson||f.LESSON.trim()} : {}), ...(c.subtopic||f.SUBTOPIC ? {subtopic:c.subtopic||f.SUBTOPIC.trim()} : {})}));
  if(Math.abs(criteria.reduce((s,c)=>s+c.maximumMarks,0)-marks)>0.00001)throw new Error(`Criteria in ${record} must sum to ${marks}.`);
  if(f.SOURCE_NOTE)warnings.push(record+': '+f.SOURCE_NOTE);
  if(f.TRANSCRIPTION_CONFIDENCE && f.TRANSCRIPTION_CONFIDENCE!=='high')warnings.push(record+': confirm uncertain transcription.');
@@ -37,5 +40,6 @@ export function parseTextKey(input:string):{rubric:Rubric;warnings:string[]} {
  else rubric.questions.push({id,question:qt,expectedAnswer:at,maximumMarks:marks,criteria,keyPages:[],diagramRequired:f.DIAGRAM_REQUIRED==='true'});
  }
  if(header.RECORD_COUNT && Number(header.RECORD_COUNT)!==blocks.length)throw new Error('RECORD_COUNT mismatch.');
+ if(!rubric.subject || !rubric.classLevel || !rubric.board || rubric.questions.some(q=>q.criteria.some(c=>!c.lesson||!c.subtopic))) warnings.push('For topic reports and worksheets, add SUBJECT, CLASS, BOARD and LESSON/SUBTOPIC for each record or criterion. Grading still works without them.');
  validateRubric(rubric,0);warnings.unshift('Review the flexible marking policy. ANSWER and CORRECT_OPTION are authoritative; independent commentary does not override them.');return {rubric,warnings};
 }

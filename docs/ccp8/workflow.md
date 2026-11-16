@@ -11,7 +11,7 @@ Follow README: Node 22.12+, Poppler for PDF validation, and backend-only GEMINI_
 5. Validate completed output, question IDs, criterion IDs, bounds and source pages. Preserve student steps, alternative-method assessment, final-answer/diagram assessment and per-criterion reasons.
 6. Code calculates question marks, best-N choices with stable key-order ties, and the fixed-total result. Missing, ambiguous, unreadable or review-required questions have null marks; any unresolved assessment withholds the total. Confirmed absent work can receive zero. Fractional marks, including quarter marks, remain supported.
 7. Return model, duration and usage with each successful sheet. Invalid sheets fail independently. Auth/billing/access/quota failures and timeouts stop remaining requests without retries or fallback; completed results remain available.
-8. Delete student uploads, expire idle key sessions/jobs after two hours. No durable history, teacher score-editing endpoint or resume after browser refresh. Abnormal termination can leave OS temporary files.
+8. Delete student uploads, expire idle key sessions/jobs after two hours. No durable history, teacher score-editing endpoint or resume after browser refresh. Worksheet content can be edited and approved separately. Abnormal termination can leave OS temporary files.
 
 The prompt preserves the approved flexible policy: valid alternative methods, credit according to error location, no duplicated formula credit, valid Venn diagrams accepted, and full credit for an established correct uncrossed-out solution despite a later redundant copying slip. Model judgment still needs human verification.
 
@@ -39,4 +39,8 @@ Gemini review flags withhold scores. Do not equate an unflagged response with pr
 
 Backend npm test builds and runs scoring, parser, transport and HTTP integration checks using a local Gemini stub and real Poppler. Gemini tests cover uploaded PDF bytes, teacher edits retained after approval, fixed maxima, null/missing assessments and quota batch stop without key exposure. Tests do not call cloud models or establish handwriting accuracy.
 
-Frontend npm run build and npm run lint validate types/build/rules. The user's full-sheet CLI sample completed in 76.5 seconds with 24 assessments; this is one observed run, not a guaranteed speed/accuracy result. The web adapter reuses that engine, but its cloud behavior must still be checked using the user's private key on their Mac.
+Frontend npm test checks student/teacher print separation and escaped rendering; npm run build and npm run lint validate types/build/rules. The user's full-sheet CLI sample completed in 76.5 seconds with 24 assessments; this is one observed run, not a guaranteed speed/accuracy result. The web adapter reuses that engine, but its cloud behavior must still be checked using the user's private key on their Mac.
+
+## After grading
+
+Build a deterministic learning report from valid counted criterion awards plus the locked lesson/subtopic mappings. Use mistake classifications returned during the existing grading request. Store bounded evaluation/worksheet records in session memory. The separate worksheet action retrieves free public questions and makes one Gemini fallback call for gaps, then requires teacher review before local student/key PDF printing. See [worksheets](worksheets.md) for the complete workflow and limitations.

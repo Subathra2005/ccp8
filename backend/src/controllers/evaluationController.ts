@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { buildLearningReport } from '../services/learningService';
 import { checkGeminiConfiguration, gradeGeminiSheet, shouldStopBatch } from '../services/geminiService';
 import { parseTextKey } from '../services/textKeyService';
 import { Request, Response } from "express";
@@ -129,6 +131,10 @@ export async function evaluateController(req: Request, res: Response) {
               const pages = await inspectPdf(file.path);
               const data = await gradeGeminiSheet(rubric, file.path, pages,
                 message => update(`Sheet ${i + 1}/${files.length}: ${message}`));
+              data.evaluationId = randomUUID();
+              data.learningReport = buildLearningReport(rubric, data);
+              if(Object.keys(session.evaluations).length >= 50) delete session.evaluations[Object.keys(session.evaluations)[0]];
+              session.evaluations[data.evaluationId] = data;
               results.push({
                 filename: file.originalname,
                 success: true,

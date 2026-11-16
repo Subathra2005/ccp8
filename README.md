@@ -65,6 +65,7 @@ Use a `choiceGroups` entry such as `{"id":"or20","questionIds":["20.A","20.B"],"
 cd backend
 npm test
 cd ../frontend
+npm test
 npm run build
 npm run lint
 ```
@@ -82,3 +83,11 @@ See the CLI trial guide for the verified Gemini API references.
 See [the API trial instructions](docs/ccp8/gemini-trial.md) to test direct PDF grading with your own key. The web app now uses the same full-sheet Gemini engine. This separate script reports response time, usage and a reviewable Q19 assessment; it does not automatically retry or change providers.
 
 For all questions, use `node scripts/gemini-all.cjs "/path/Answer sheet.pdf" "/path/Answer key.txt"` from `backend` after building. This reports criterion-level reasons and a key-locked total, withheld when any assessment is unresolved. See the trial instructions above.
+
+## Topic reports and 15-question worksheets
+
+Add SUBJECT, CLASS and BOARD headers and LESSON/SUBTOPIC to each key record (optional SYLLABUS, LANGUAGE and LESSONS). Review these mappings before approval. After evaluation, select topics in the teacher report and choose **Create 15-question worksheet**.
+
+The app searches free, openly licensed Wikibooks material, then uses Gemini only for missing questions or solutions. Coverage is limited and source questions need syllabus review; no paid search API is used. Gemini fallback consumes your project's quota. Review/edit the questions and teacher solutions, approve, then select **Student PDF** or **Teacher answer key PDF** and choose **Save as PDF** in the browser dialog.
+
+See [key example and full worksheet guide](docs/ccp8/worksheets.md). Old keys continue to grade; missing metadata simply disables or limits this feature. Supports arbitrary subjects/classes through supplied curriculum context, not a built-in syllabus catalogue. The frontend also has `npm test` checks for answer-free student print output.

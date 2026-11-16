@@ -65,3 +65,19 @@ Current Gemini-only source inventory (16 November 2026). Generated dependencies/
 - Change API/job behavior in controller/routes/jobStore and `api.md`; keep frontend polling/types aligned.
 - Change result presentation in ScoreCard/QuestionResult and `pages.md`; never render unresolved marks as zero.
 - Keep optional diagnostic CLI scripts separate from the production request path.
+
+## Learning and worksheet additions
+
+| Path | Purpose |
+|---|---|
+| `backend/src/services/learningService.ts` | Deterministic lesson/topic report from counted, readable criterion evidence. |
+| `backend/src/services/questionRetrievalService.ts` | Free fixed-origin Wikibooks search, bounded HTML extraction, source attribution and cache. |
+| `backend/src/services/worksheetService.ts` | 15-slot selection, single-call gap generation, validation and teacher review. |
+| `backend/src/controllers/worksheetController.ts` | Session-scoped worksheet jobs and approval endpoints. |
+| `backend/tests/learning-worksheet.test.cjs` | Metadata, exclusions, retrieval, quota-free complete sources, fallback and provenance tests. |
+| `frontend/src/components/LearningWorksheet.tsx` | Teacher report, topic selection, generation, edits, approval and print controls. |
+| `frontend/src/utils/worksheetPrint.ts` | Escaped answer-free student / teacher HTML and KaTeX print-to-PDF rendering. |
+| `frontend/tests/worksheet-print.test.cjs` | Solution exclusion and untrusted-markup rendering checks. |
+| `docs/ccp8/worksheets.md` | Curriculum fields, reports, free-source limits, fallback, review and PDF workflow. |
+
+Cheerio is used only for public source HTML parsing; KaTeX and its bundled fonts are used locally for worksheet mathematics. `gemini.cjs` shares completed JSON transport for grading and text-only worksheet gaps. Keep backend/frontend nullable evaluation and worksheet types aligned.

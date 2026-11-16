@@ -1,4 +1,4 @@
-# Structured TXT answer keys (15 November 2026)
+# Structured TXT answer keys
 
 Key upload accepts UTF-8 `.txt`, at most 1 MiB. Arbitrary prose keys are not supported: no model is used to invent a schema. Student uploads remain handwritten PDFs. The existing `/api/schemes/extract` job envelope and approval endpoint are retained.
 
@@ -34,3 +34,7 @@ For incorrect final answers, judge valid progress and the first substantive erro
 
 These qualitative judgments are model instructions, not a deterministic mathematical proof checker. Backend code validates award bounds and computes the fixed total. Teacher review remains necessary for uncertain handwriting and reasoning. Key import is tested without model calls; live M1 latency and grading quality have not been benchmarked.
 
+
+## Lessons and subtopics
+
+Optional SUBJECT, CLASS, BOARD, SYLLABUS, LANGUAGE and LESSONS headers plus LESSON/SUBTOPIC per record enable topic reports and personalised worksheets. See [worksheet format and workflow](worksheets.md). These fields do not change the marking maxima or bypass teacher approval.

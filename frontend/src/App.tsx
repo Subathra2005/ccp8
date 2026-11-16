@@ -1,3 +1,4 @@
+import LearningWorksheet from './components/LearningWorksheet';
 import { useState } from "react";
 import FileUpload from "./components/FileUpload";
 import ScoreCard from "./components/ScoreCard";
@@ -162,7 +163,7 @@ export default function App() {
                                       )
                                       .map(
                                         (c) =>
-                                          `${c.id}: ${c.maximumMarks} (${c.description})`,
+                                          `${c.id}: ${c.maximumMarks} (${c.description})${c.lesson || q.lesson ? ` — ${c.lesson || q.lesson} / ${c.subtopic || q.subtopic || "topic missing"}` : ""}`,
                                       )
                                       .join("; ")
                                   : "Invalid criteria"}
@@ -179,6 +180,8 @@ export default function App() {
                   </div>
                 </>
               )}
+              <p className="small">For personalised worksheets, add subject, classLevel, board (and optionally syllabus, language, lessons) to the scheme JSON. Add lesson and subtopic to each question or criterion. Existing keys still grade without topic metadata.</p>
+              {preview && <p><strong>Curriculum:</strong> {[preview.subject,preview.classLevel && `Class ${preview.classLevel}`,preview.board,preview.syllabus].filter(Boolean).join(' · ') || 'Not supplied'}</p>}
               <details className="mb-3"><summary>Marking policy to approve</summary><p>{preview?.instructions}</p></details>
               <label className="form-label" htmlFor="scheme">
                 Editable marking scheme (JSON)
@@ -262,6 +265,7 @@ export default function App() {
             {r.success && r.data ? (
               <>
                 <ScoreCard result={r.data} />
+                {locked && draft && <LearningWorksheet result={r.data} sessionId={draft.sessionId} rubric={locked}/>}
                 {r.data.questions.map((q) => (
                   <QuestionResult key={q.questionNumber} question={q} />
                 ))}

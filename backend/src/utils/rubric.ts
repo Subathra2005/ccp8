@@ -18,11 +18,16 @@ export function validateRubric(value: unknown, pageCount?: number): Rubric {
     !Array.isArray(r.choiceGroups)
   )
     throw new Error("Provide 1–200 questions and a choiceGroups array.");
+  const optionalLabel = (v: unknown) => v === undefined || (typeof v === 'string' && v.trim().length > 0 && v.length <= 160);
+  if (![r.subject,r.classLevel,r.board,r.syllabus,r.language].every(optionalLabel) ||
+      (r.lessons !== undefined && (!Array.isArray(r.lessons) || r.lessons.length > 200 || !r.lessons.every(x=>typeof x==='string' && optionalLabel(x)))))
+    throw new Error('Use short non-empty subject/class/board/syllabus/language labels and a lessons array.');
   const ids = new Set<string>();
   for (const q of r.questions) {
     if (!text(q.id) || !q.id.trim() || ids.has(q.id))
       throw new Error("Each question/subpart needs a unique id.");
     ids.add(q.id);
+    if (![q.lesson,q.subtopic].every(optionalLabel)) throw new Error(`Invalid lesson/topic for ${q.id}.`);
     if (
       !text(q.question) ||
       !text(q.expectedAnswer) ||
@@ -58,6 +63,9 @@ export function validateRubric(value: unknown, pageCount?: number): Rubric {
       )
         throw new Error(`Check marking split-ups for ${q.id}.`);
       criterionIds.add(c.id);
+      if (![c.lesson,c.subtopic].every(optionalLabel)) throw new Error(`Invalid criterion lesson/topic for ${q.id}.`);
+      const lesson=c.lesson||q.lesson;
+      if(r.lessons?.length && lesson && !r.lessons.includes(lesson)) throw new Error(`Lesson ${lesson} is not in the approved lessons list.`);
     }
     if (
       !close(

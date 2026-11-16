@@ -1,3 +1,4 @@
+import {createWorksheetController, approveWorksheetController} from '../controllers/worksheetController';
 import {
   Router,
   Request,
@@ -60,4 +61,6 @@ router.post(
   evaluateController,
 );
 router.get("/jobs/:id", jobController);
+router.post("/schemes/:id/worksheets", createWorksheetController);
+router.post("/schemes/:id/worksheets/:worksheetId/approve", approveWorksheetController);
 export default router;

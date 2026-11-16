@@ -1,6 +1,6 @@
 # HTTP contracts
 
-This reference accompanies the TXT-key / handwritten-student-PDF implementation (15 November 2026). Base URL defaults to `http://localhost:5001/api`. No application auth exists. Session/job ids are random UUIDs and must be kept private in this local workflow.
+This reference accompanies the TXT-key / handwritten-student-PDF implementation (16 November 2026). Base URL defaults to `http://localhost:5001/api`. No application auth exists. Session/job ids are random UUIDs and must be kept private in this local workflow.
 
 ## Complete endpoint inventory
 
@@ -11,15 +11,18 @@ This reference accompanies the TXT-key / handwritten-student-PDF implementation 
 | GET | `/api/jobs/:id` | Job UUID | 200 `{success:true,id,status,message,data?,expires}`; 404 if expired/missing |
 | POST | `/api/schemes/:id/approve` | JSON `{rubric,confirmed:true}` | 200 `{success:true,sessionId,rubric}` |
 | POST | `/api/evaluate` | Multipart `sessionId` and 1–10 `answerSheets` PDFs | 202 `{success:true,jobId}` |
-| POST (outbound, default) | `https://generativelanguage.googleapis.com/v1beta/interactions` | PDF document plus locked rubric text and JSON schema | Completed structured assessment |
+| POST | `/api/schemes/:id/worksheets` | JSON `{evaluationId,topicIds}` | 202 `{success:true,jobId}`; poll for `{worksheet}` |
+| POST | `/api/schemes/:id/worksheets/:worksheetId/approve` | JSON `{questions,confirmed:true}` | Reviewed worksheet JSON |
+| GET (outbound) | `https://en.wikibooks.org/w/api.php` | Curriculum search/page parse | Public question candidates; no student data |
+| POST (outbound, default) | `https://generativelanguage.googleapis.com/v1beta/interactions` | PDF plus locked rubric for grading; text tasks for worksheet gaps; JSON schema | Completed structured assessment |
 
-No fixed answer-key file, history/list/delete/export/review-update endpoint or separate provider upload exists. Framework CORS/preflight, GET-associated HEAD and default 404 are not custom application routes.
+No fixed answer-key file, durable history, score-edit endpoint or separate provider upload exists. Worksheet approval is separate from grading. Framework CORS/preflight, GET-associated HEAD and default 404 are not custom application routes.
 
 ## Upload and transport
 
 Keys accept .txt filenames with a 1 MiB server limit and UTF-8/content validation. Students use PDF MIME. Multer writes temporary files to the OS temp directory and limits each file to 10 MiB, limits ten files, two text fields, and 1 KiB per multipart field. Poppler subsequently checks PDF bytes (`%PDF-`) and 1–30 pages. Frontend and Gemini transport enforce the same 10 MiB limit. Upload size errors are 413; other Multer rejections are 400. The key is moved into its session directory; student files are deleted after processing.
 
-Backend JSON body limit is 200 KiB. Allow frontend origin via FRONTEND_ORIGIN (default `http://localhost:5173`). Frontend API base is VITE_API_BASE_URL (default `http://localhost:5001/api`). Let the multipart sender set Content-Type/boundary.
+Backend JSON body limit is 512 KiB. Allow frontend origin via FRONTEND_ORIGIN (default `http://localhost:5173`). Frontend API base is VITE_API_BASE_URL (default `http://localhost:5001/api`). Let the multipart sender set Content-Type/boundary.
 
 ## Job lifecycle
 
@@ -71,7 +74,7 @@ Each question returns questionNumber (string), maximumMarks, obtainedMarks, stat
 
 ## Outbound Gemini contract (default)
 
-Gemini only; backend-only `GEMINI_API_KEY`. `POST https://generativelanguage.googleapis.com/v1beta/interactions`, headers `x-goog-api-key` and `Api-Revision: 2026-05-20`. Native fetch sends `model:gemini-4-hydrogen`, `store:false`, base64 PDF `document` input and text containing the immutable approved rubric. Structured `response_format` supplies JSON schema; `generation_config.max_output_tokens=24576`. Timeout: 600 seconds. No automatic retries or fallback.
+Gemini only; backend-only `GEMINI_API_KEY`. `POST https://generativelanguage.googleapis.com/v1beta/interactions`, headers `x-goog-api-key` and `Api-Revision: 2026-05-20`. Native fetch sends `model:gemini-4-hydrogen`, `store:false`, base64 PDF `document` input and text containing the immutable approved rubric. Structured `response_format` supplies JSON schema; `generation_config.max_output_tokens=24576`. Timeout: 600 seconds. No automatic retries or provider fallback. Worksheet retrieval-to-Gemini gap generation is a separate teacher-triggered workflow.
 
 Shared `backend/lib/gemini.cjs` powers the CLI and web adapter. It accepts only completed JSON, exact criterion IDs, bounded finite marks and valid source pages. The response schema enumerates approved question IDs. Unambiguous plain-number formatting such as Q19/19 is normalized; subparts and OR labels are never flattened. Duplicate questions remain unscored, unknown labels are reported in warnings, and either condition withholds the total while retaining other valid assessments. Missing questions are unscored. Code supplies maxima, sums and best-N choice selection. Error messages redact keys. HTTP 401/402/403/404/429 and timeouts stop the remaining batch; other per-sheet failures preserve independent processing. Missing API key fails before queueing. Health reports configuration, not credentials or verified provider access.
 
@@ -79,3 +82,7 @@ Shared `backend/lib/gemini.cjs` powers the CLI and web adapter. It accepts only 
 
 Missing uploads, expired/unapproved/busy sessions, malformed PDFs, missing Poppler and queue rejection produce a JSON error envelope `{success:false,message}` (usually 400 in controllers). Grading job-level model failures fail a sheet or return unscored questions when evidence is unresolved. Global unexpected errors return 500. Successful extraction does not imply approval, and process health does not check Poppler/Gemini availability.
 
+
+## Learning and worksheets
+
+Rubric metadata optionally includes subject, classLevel, board, syllabus, language and lessons; criteria/questions may carry lesson/subtopic. Each successful web evaluation adds evaluationId and learningReport, while criterion awards may add mistakeType and learningNote. Reports only aggregate valid counted assessed evidence. See [worksheet contracts](worksheets.md) for schemas, source limits, approval, provenance and local PDF printing.

@@ -23,6 +23,10 @@ One React page in App.tsx, normally `http://localhost:5173/`. Upload, marking-sc
 - `api.ts`: configurable API base, JSON error handling, queued/running/completed/failed polling every two seconds. No durable browser job recovery after refresh.
 - `main.tsx`: React StrictMode mount; Bootstrap and index.css imports.
 
-Global CSS includes pre-wrapped evidence and top-aligned table cells. Tables scroll horizontally inside their own responsive container. Unused starter CSS and artwork have been removed. index.html still provides root div, favicon and entry module. There is no PDF annotation/editor, editable awarded marks, export or formal review-submission screen. Mathematical transcription is displayed as plain text/LaTeX source, not a symbolic-math renderer.
+Global CSS includes pre-wrapped evidence and top-aligned table cells. Tables scroll horizontally inside their own responsive container. Unused starter CSS and artwork have been removed. index.html still provides root div, favicon and entry module. There is no PDF annotation/editor or editable awarded-grade workflow. Worksheets have their own draft editor, approval and separate print-to-PDF views. Grading evidence is displayed as plain text/LaTeX source; worksheet print views render mathematical LaTeX with KaTeX.
 
 The current review editor is JSON plus a readable summary table. Teachers compare it with their original TXT externally. It does not yet offer a dedicated form editor or embedded PDF viewer. Do not describe this as automatic approval or a polished one-click review flow.
+
+## Topic reports and worksheets
+
+LearningWorksheet.tsx appears per successful sheet: topic evidence table, mistake types, topic selection, create-15 action, asynchronous progress/errors, source/generation counts, question/solution preview, JSON edits, confirmation and approval. Student PDF and Teacher answer key PDF stay disabled until approval; editing clears approval. Buttons use the browser print dialog (Save as PDF). Missing curriculum metadata explains how to enable the feature without breaking grading. See [worksheets](worksheets.md).

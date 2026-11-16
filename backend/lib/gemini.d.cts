@@ -10,7 +10,7 @@ export interface GeminiQuestion {
   diagram_assessment?: string;
   brief_marking_reason: string;
   review_required: boolean;
-  criteria: {id:string; awarded_marks:number|null; reason:string; description:string; maximum_marks:number}[];
+  criteria: {mistake_type?:string; learning_note?:string; id:string; awarded_marks:number|null; reason:string; description:string; maximum_marks:number}[];
   maximum_marks:number;
   awarded_marks:number|null;
   counted:boolean|null;
@@ -23,3 +23,5 @@ export interface GeminiReport {
 }
 export function evaluatePdf(options:{pdf:Buffer; rubric:Rubric; apiKey:string; pages:number; fetchImpl?:typeof fetch}):Promise<GeminiReport>;
 export function validateResult(data:unknown,rubric:Rubric,pages:number):GeminiReport['result'];
+
+export function requestJson(options:{input:unknown[]; responseSchema:unknown; apiKey:string; fetchImpl?:typeof fetch}):Promise<{model:string; elapsed_seconds:number; usage:Record<string,unknown>|null; result:unknown}>;

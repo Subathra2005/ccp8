@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import { evaluatePdf } from '../../lib/gemini.cjs';
-import { FinalEvaluation, Rubric } from '../types/evaluation';
+import { FinalEvaluation, Rubric, MistakeType } from '../types/evaluation';
 import { validateRubric } from '../utils/rubric';
 
 export function checkGeminiConfiguration() {
@@ -46,7 +46,7 @@ export async function gradeGeminiSheet(
       reason:q.brief_marking_reason + (q.uncertain_symbols?.length ? ` Unclear: ${q.uncertain_symbols.join('; ')}` : ''),
       methodAssessment:q.method_assessment || 'Not evaluated.', finalAnswerAssessment:q.final_answer_assessment || 'Not evaluated.',
       diagramAssessment:q.diagram_assessment || 'Not evaluated.', sourcePages:q.source_pages || [],
-      criteria:q.criteria.map(c=>({id:c.id,description:c.description,maximumMarks:c.maximum_marks,obtainedMarks:c.awarded_marks,reason:c.reason})),
+      criteria:q.criteria.map(c=>({id:c.id,description:c.description,maximumMarks:c.maximum_marks,obtainedMarks:c.awarded_marks,reason:c.reason,mistakeType:c.mistake_type as MistakeType,learningNote:c.learning_note})),
       counted:q.counted, manualReviewRequired:q.review_required,
     })),
   };

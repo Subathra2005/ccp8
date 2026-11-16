@@ -2,13 +2,15 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { Rubric } from "../types/evaluation";
+import { Rubric, FinalEvaluation, Worksheet } from "../types/evaluation";
 export interface Session {
   id: string;
   directory: string;
   keyFile: string;
   pages: number;
   rubric?: Rubric;
+  evaluations: Record<string, FinalEvaluation>;
+  worksheets: Record<string, Worksheet>;
   expires: number;
   busy: boolean;
 }
@@ -33,6 +35,7 @@ export async function createSession(keyFile: string, pages: number) {
     pages,
     expires: Date.now() + TTL,
     busy: true,
+    evaluations: {}, worksheets: {},
   };
   try {
     await fs.rename(keyFile, session.keyFile);
