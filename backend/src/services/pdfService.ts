@@ -1,7 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs/promises";
-import path from "node:path";
 const exec = promisify(execFile);
 export const MAX_PAGES = 30;
 export async function inspectPdf(file: string): Promise<number> {
@@ -28,46 +27,5 @@ export async function inspectPdf(file: string): Promise<number> {
     throw new Error(
       error instanceof Error ? error.message : "Could not read PDF.",
     );
-  }
-}
-export async function renderPage(
-  file: string,
-  page: number,
-  directory: string,
-  crop?: { x: number; y: number; width: number; height: number },
-): Promise<string> {
-  const prefix = path.join(directory, `page-${page}`);
-  try {
-    await exec(
-      "pdftoppm",
-      [
-        "-f",
-        String(page),
-        "-l",
-        String(page),
-        "-singlefile",
-        "-scale-to",
-        "1800",
-        ...(crop
-          ? [
-              "-x",
-              String(crop.x),
-              "-y",
-              String(crop.y),
-              "-W",
-              String(crop.width),
-              "-H",
-              String(crop.height),
-            ]
-          : []),
-        "-png",
-        file,
-        prefix,
-      ],
-      { timeout: 60000, maxBuffer: 1024 * 1024 },
-    );
-    return await fs.readFile(`${prefix}.png`, "base64");
-  } finally {
-    await fs.rm(`${prefix}.png`, { force: true });
   }
 }

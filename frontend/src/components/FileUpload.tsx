@@ -2,14 +2,12 @@ import { useState } from "react";
 interface Props {
   label: string;
   multiple?: boolean;
-  maxPdfMiB?: number;
   loading: boolean;
   onSubmit: (files: File[]) => void;
 }
 export default function FileUpload({
   label,
   multiple = false,
-  maxPdfMiB = 10,
   loading,
   onSubmit,
 }: Props) {
@@ -23,7 +21,7 @@ export default function FileUpload({
           {multiple
             ? "Select up to 10 student PDFs for the same approved key."
             : "Upload a structured TXT key with questions, answers, marks and split-ups."}{" "}
-          {multiple ? `PDF only · ${maxPdfMiB} MiB per file · up to 30 pages per PDF.` : "UTF-8 TXT only · 1 MiB maximum · no model extraction."}
+          {multiple ? "PDF only · 10 MiB per file · up to 30 pages per PDF." : "UTF-8 TXT only · 1 MiB maximum · no model extraction."}
         </p>
         <label className="form-label" htmlFor={multiple ? "sheets" : "key"}>
           {multiple ? "Student answer sheets" : "Teacher answer key"}
@@ -43,7 +41,7 @@ export default function FileUpload({
               chosen.length > (multiple ? 10 : 1) ||
               chosen.some(
                 (f) =>
-                  multiple ? (f.type !== "application/pdf" || f.size > maxPdfMiB * 1024 * 1024) : (!/\.txt$/i.test(f.name) || f.size > 1024 * 1024),
+                  multiple ? (f.type !== "application/pdf" || f.size > 10 * 1024 * 1024) : (!/\.txt$/i.test(f.name) || f.size > 1024 * 1024),
               )
             ) {
               setError("Select files of the required type within the stated limits.");

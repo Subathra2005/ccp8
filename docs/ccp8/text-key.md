@@ -34,5 +34,3 @@ For incorrect final answers, judge valid progress and the first substantive erro
 
 These qualitative judgments are model instructions, not a deterministic mathematical proof checker. Backend code validates award bounds and computes the fixed total. Teacher review remains necessary for uncertain handwriting and reasoning. Key import is tested without model calls; live M1 latency and grading quality have not been benchmarked.
 
-
-Student mapping correction: image crop retries apply only to incomplete vision transcription. Completed text is mapped via `studentTextService.ts` (600 output tokens, no retry, bounded chunks). Invalid/truncated mappings retain complete unassigned text in result warnings for teacher review instead of aborting the sheet. This avoids regenerating all student work as JSON. Live model speed and mapping accuracy still need hardware testing.

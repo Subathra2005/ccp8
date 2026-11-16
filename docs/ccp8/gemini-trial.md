@@ -49,4 +49,4 @@ The JSON report under `backend/trial-results/gemini-all-<timestamp>.json` includ
 
 Missing questions become `not_evaluated`; ambiguous, unreadable or review-required assessments have null scores. Any unresolved question withholds the paper total (including unresolved choice alternatives). Only a model-confirmed genuinely unanswered question receives zero for absent work. Invalid criteria, out-of-range marks and truncated responses are rejected. Unknown/duplicate question IDs withhold the total while preserving other valid assessments. A complete response still requires human comparison against the handwriting: schema validation cannot establish mathematical or visual accuracy.
 
-The agent tested transport and scoring using mocks, not a live full-sheet API request. The web application now defaults to Gemini and shares `backend/lib/gemini.cjs` with this full-sheet script.
+The agent tested transport and scoring using mocks, not a live full-sheet API request. The web application uses only Gemini and shares `backend/lib/gemini.cjs` with this full-sheet script.

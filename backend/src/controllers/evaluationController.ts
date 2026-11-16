@@ -1,11 +1,8 @@
-import { checkProviderConfiguration, gradeGeminiSheet, shouldStopBatch } from '../services/geminiService';
+import { checkGeminiConfiguration, gradeGeminiSheet, shouldStopBatch } from '../services/geminiService';
 import { parseTextKey } from '../services/textKeyService';
 import { Request, Response } from "express";
 import fs from "node:fs/promises";
 import { inspectPdf } from "../services/pdfService";
-import {
-  gradeSheet,
-} from "../services/evaluationService";
 import {
   createSession,
   enqueue,
@@ -102,7 +99,7 @@ export async function evaluateController(req: Request, res: Response) {
     if (session.busy)
       throw new Error("A batch is already running for this key.");
     if (!files.length) throw new Error("Upload 1–10 answerSheets PDFs.");
-    const provider = checkProviderConfiguration();
+    checkGeminiConfiguration();
     // Acquire before the first await so simultaneous uploads cannot share a session.
     session.busy = true;
     releaseLock = () => {
@@ -130,17 +127,8 @@ export async function evaluateController(req: Request, res: Response) {
             try {
               if (batchStopReason) throw new Error(`Not evaluated: batch stopped. ${batchStopReason}`);
               const pages = await inspectPdf(file.path);
-              const data = provider === "gemini"
-                ? await gradeGeminiSheet(rubric, file.path, pages, message => update(`Sheet ${i + 1}/${files.length}: ${message}`))
-                : await gradeSheet(
-                rubric,
-                undefined,
-                file.path,
-                pages,
-                session.directory,
-                (message) =>
-                  update(`Sheet ${i + 1}/${files.length}: ${message}`),
-              );
+              const data = await gradeGeminiSheet(rubric, file.path, pages,
+                message => update(`Sheet ${i + 1}/${files.length}: ${message}`));
               results.push({
                 filename: file.originalname,
                 success: true,

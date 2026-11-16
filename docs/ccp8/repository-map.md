@@ -1,89 +1,67 @@
 # Complete repository map
 
-This inventory accompanies the handwritten-PDF implementation. Tracked source files are listed; dependency lockfiles and artwork are inventoried by role, not audited dependency/image contents. Generated node_modules/dist and personal sample PDFs are excluded.
+Current Gemini-only source inventory (16 November 2026). Generated dependencies/build outputs, private credentials and uploaded student data are excluded.
 
 | Path | Purpose |
 |---|---|
-| `.DS_Store` | macOS metadata; no application behavior. |
-| `AGENTS.md` | Agent entry point; directs repository workers to SKILL.md. |
-| `README.md` | Mac setup, teacher workflow, choice policy, retention, checks and limitations. |
-| `SKILL.md` | Main project guide and invariants; links these reference files. |
-| `backend/.env.example` | Backend port/origin, Gemini default/key and optional local Ollama settings. |
-| `backend/.gitignore` | Exclude node_modules, dist, .env and upload contents. |
-| `backend/package-lock.json` | Locked backend dependency graph; use for reproducible installation. |
-| `backend/package.json` | Node engine, Express/TypeScript/Multer dependencies and dev/build/start/test scripts. |
-| `backend/src/controllers/evaluationController.ts` | Key extraction job, scheme approval/locking, batch jobs, per-file outcomes and job polling. |
-| `backend/src/routes/evaluationRoutes.ts` | All API routes, single/multiple PDF upload limits and middleware-error cleanup/statuses. |
-| `backend/src/server.ts` | dotenv, configurable CORS, JSON parser, health, router, global error response, listen. |
-| `backend/src/services/evaluationService.ts` | Page transcription, key indexing/per-question rubric extraction, visual/text grading and criterion validation. |
-| `backend/src/services/jobStore.ts` | Process-wide sequential job queue, UUID sessions/jobs, busy locking and idle TTL cleanup. |
-| `backend/src/services/ollamaService.ts` | Native Ollama chat fetch with images, JSON schemas, deterministic sampling, timeout and parsing. |
-| `backend/src/services/pdfService.ts` | Header/page inspection via pdfinfo; sequential bounded PNG rendering via pdftoppm and image cleanup. |
-| `backend/src/types/evaluation.ts` | Rubric, choice, evidence, criterion award, question, final and sheet response interfaces. |
-| `backend/src/utils/rubric.ts` | Runtime scheme validation: ids, finite marks, split-ups, page refs, choices and fixed paper total. |
-| `backend/src/utils/scoreCalculator.ts` | Reconstruct approved maxima; sum criteria; best-N choices; fixed denominator and review flags. |
-| `backend/tests/integration.test.cjs` | Real Poppler plus controlled Ollama HTTP stub; image transport, approval, upload errors and isolated batch outcomes. |
-| `backend/tests/ollama.test.cjs` | Truncation regression tests: typed errors, compact retry, bounded attempts and no partial output acceptance. |
-| `backend/tests/scoring.test.cjs` | Deterministic rubric/scoring, fractional choice, invalid award and PDF-byte tests. |
-| `backend/tsconfig.json` | Strict TypeScript; ES2022, CommonJS, Node resolution, src → dist, esModuleInterop. |
-| `docs/ccp8/api.md` | Complete HTTP and payload contracts. |
-| `docs/ccp8/pages.md` | All page states, actions and component roles. |
-| `docs/ccp8/repository-map.md` | This complete tracked-file inventory. |
-| `docs/ccp8/workflow.md` | Pipeline, scoring, setup, resource limits and verification. |
-| `frontend/.env.example` | Optional VITE_API_BASE_URL override. |
-| `frontend/.gitignore` | Exclude generated output, dependencies, logs, local and editor artifacts. |
-| `frontend/README.md` | Generic React/TypeScript/Vite starter notes, not project-specific documentation. |
-| `frontend/eslint.config.js` | JS/TS recommended rules, React Hooks and refresh rules, browser globals; ignore dist. |
-| `frontend/index.html` | HTML shell, favicon, viewport, title frontend, root element and main.tsx module. |
-| `frontend/package-lock.json` | Locked frontend dependency graph, resolved versions and package engine constraints. |
-| `frontend/package.json` | Node engine, React/Bootstrap/Vite/TypeScript dependencies and dev/build/lint/preview scripts. |
-| `frontend/public/favicon.svg` | Static SVG favicon referenced by index.html. |
-| `frontend/public/icons.svg` | Static SVG icon asset; not referenced by current TSX application. |
-| `frontend/src/App.css` | Unused starter CSS; App does not import this file. |
-| `frontend/src/App.tsx` | Only app page; key extraction/review/editor/approval, locked-key batches, progress and results. |
-| `frontend/src/api.ts` | Configurable API helper and 2-second job polling. |
-| `frontend/src/assets/hero.png` | Starter image asset; not referenced by current application TSX. |
-| `frontend/src/assets/react.svg` | Starter React artwork; not referenced by current application TSX. |
-| `frontend/src/assets/vite.svg` | Starter Vite artwork; not referenced by current application TSX. |
-| `frontend/src/components/FileUpload.tsx` | Reusable PDF single-key/multiple-sheet selection with MIME/size/count checks. |
-| `frontend/src/components/QuestionResult.tsx` | Criterion awards/reasons, method/final/diagram assessment, evidence and choice/review flags. |
-| `frontend/src/components/ScoreCard.tsx` | Fixed-total summary, percentage/progress and provisional/review warnings. |
-| `frontend/src/index.css` | Global typography, wrapped evidence and table layout. |
-| `frontend/src/main.tsx` | ReactDOM entry; StrictMode, App, Bootstrap and global CSS imports. |
-| `frontend/src/types/evaluation.ts` | Aligned copy of backend rubric/evidence/grading types. |
-| `frontend/tsconfig.app.json` | Frontend compiler settings: ES2023/DOM, bundler resolution, React JSX, no emit and unused checks. |
-| `frontend/tsconfig.json` | Project references to app and node configurations. |
-| `frontend/tsconfig.node.json` | Type-check Vite configuration with Node types, nodenext and no emit. |
-| `frontend/vite.config.ts` | Vite React plugin only; no explicit proxy, custom port or API environment wiring. |
+| `.gitignore` | Exclude macOS metadata. |
+| `AGENTS.md` | Agent entry point and guide maintenance rules. |
+| `README.md` | Mac setup, teacher workflow, limits and checks. |
+| `SKILL.md` | Current agent workflow, invariants and reference navigation. |
+| `backend/.env.example` | Public configuration template; never contains a real API key. |
+| `backend/.gitignore` | Exclude generated output, dependencies and private local files. |
+| `backend/lib/gemini.cjs` | Original-PDF Gemini transport, response schema, ID recovery, strict awards and fixed scoring/choices. |
+| `backend/lib/gemini.d.cts` | Typed contract for the shared CommonJS grading engine. |
+| `backend/package-lock.json` | Pinned dependency graph. |
+| `backend/package.json` | Package dependencies and run/build/test scripts. |
+| `backend/scripts/gemini-all.cjs` | Optional full-sheet CLI using the same shared grading engine. |
+| `backend/scripts/gemini-q19.cjs` | Optional isolated Q19 diagnostic with its own smaller response schema. |
+| `backend/src/controllers/evaluationController.ts` | TXT import, teacher approval/lock, sequential PDF batches, per-file outcomes and batch-stop policy. |
+| `backend/src/routes/evaluationRoutes.ts` | Multipart routes, 1 MiB TXT / 10 MiB PDF limits and failed-upload cleanup. |
+| `backend/src/server.ts` | Express startup, CORS, Gemini health response and global errors. |
+| `backend/src/services/geminiService.ts` | Private-key check, approved-rubric adapter, nullable results, usage and errors. |
+| `backend/src/services/jobStore.ts` | In-memory session/job queue, UUIDs, two-hour expiry and temporary files. |
+| `backend/src/services/pdfService.ts` | PDF header and page-count checks using pdfinfo; no image rendering. |
+| `backend/src/services/textKeyService.ts` | Structured TXT parsing, subpart grouping, source split-ups and flexible marking policy. |
+| `backend/src/types/evaluation.ts` | Duplicated backend/frontend rubric, nullable evaluation and batch types; keep aligned. |
+| `backend/src/utils/rubric.ts` | Validate IDs, criterion sums, fixed paper total and disjoint equal-mark choices. |
+| `backend/tests/gemini-all.test.cjs` | Full-sheet request, labels, uncertain evidence, missing/duplicate IDs and no-retry checks. |
+| `backend/tests/gemini-integration.test.cjs` | HTTP workflow with real PDF validation and a Gemini stub: approval edits, limits, batches, nulls and quota. |
+| `backend/tests/gemini-trial.test.cjs` | Q19 transport, bounds, ambiguity, billing and incomplete-response checks. |
+| `backend/tests/scoring.test.cjs` | Shared Gemini scoring, choices, rubric and PDF-content regression checks. |
+| `backend/tests/text-key.test.cjs` | TXT grouping, fixed totals, duplicates, missing fields and explicit split-ups. |
+| `backend/tsconfig.json` | Build, TypeScript or lint configuration. |
+| `docs/ccp8/api.md` | Reference for api. |
+| `docs/ccp8/gemini-trial.md` | Reference for gemini trial. |
+| `docs/ccp8/pages.md` | Reference for pages. |
+| `docs/ccp8/repository-map.md` | Reference for repository map. |
+| `docs/ccp8/text-key.md` | Reference for text key. |
+| `docs/ccp8/workflow.md` | Reference for workflow. |
+| `frontend/.env.example` | Public configuration template; never contains a real API key. |
+| `frontend/.gitignore` | Exclude generated output, dependencies and private local files. |
+| `frontend/README.md` | Frontend start/check commands and reference links. |
+| `frontend/eslint.config.js` | Build, TypeScript or lint configuration. |
+| `frontend/index.html` | CCP8 page title, favicon, root and entry module. |
+| `frontend/package-lock.json` | Pinned dependency graph. |
+| `frontend/package.json` | Package dependencies and run/build/test scripts. |
+| `frontend/public/favicon.svg` | Used browser favicon. |
+| `frontend/src/App.tsx` | Only application page: key upload, editable approval, locked scheme, batch upload and results. |
+| `frontend/src/api.ts` | JSON API client and two-second job polling. |
+| `frontend/src/components/FileUpload.tsx` | TXT or multi-PDF upload selection and client validation. |
+| `frontend/src/components/QuestionResult.tsx` | Per-question/criterion marks, reasons, review/choice flags and student evidence. |
+| `frontend/src/components/ScoreCard.tsx` | Fixed total or pending review, percentage, timing/model and warnings. |
+| `frontend/src/index.css` | Layout, evidence wrapping and table styling. |
+| `frontend/src/main.tsx` | React mount and Bootstrap/styles imports. |
+| `frontend/src/types/evaluation.ts` | Duplicated backend/frontend rubric, nullable evaluation and batch types; keep aligned. |
+| `frontend/tsconfig.app.json` | Build, TypeScript or lint configuration. |
+| `frontend/tsconfig.json` | Build, TypeScript or lint configuration. |
+| `frontend/tsconfig.node.json` | Build, TypeScript or lint configuration. |
+| `frontend/vite.config.ts` | Build, TypeScript or lint configuration. |
 
 ## Change navigation
 
-| Task | Start | Follow through |
-|---|---|---|
-| Add/alter endpoint | routes/evaluationRoutes.ts | Controller, API client, docs/api |
-| Change key extraction | services/evaluationService.ts | Rubric validator, review UI, both type copies |
-| Change PDF handling | services/pdfService.ts | Upload limits, model images, integration test |
-| Change marks/choices | utils/rubric.ts and scoreCalculator.ts | Extraction prompt, criterion schema, UI explanation, tests |
-| Change memory settings | services/ollamaService.ts | PDF dimensions, context guards, README hardware guidance |
-| Add persistence | services/jobStore.ts | Controller lifecycle, retention policy, browser recovery |
-
-Paths in navigation are relative to backend/src unless specified. There is no database, CI workflow, container/deployment configuration, account system or other application page.
-
-| `backend/src/services/textKeyService.ts` | Direct UTF-8 structured key parsing, subpart grouping, explicit criteria and flexible marking policy. |
-| `backend/tests/text-key.test.cjs` | Parser, totals, duplicate/subpart and source-split regressions. |
-| `docs/ccp8/text-key.md` | Supported TXT format and agreed grading policy. |
-
-| `backend/src/services/studentTextService.ts` | Bounded line-boundary mapping; preserves completed OCR and flags unassigned text without vision retries. |
-| `backend/tests/student-text.test.cjs` | Exact text retention, invalid mapping, bounded chunks and no re-reading on mapping truncation. |
-
-| `backend/scripts/gemini-q19.cjs` | Opt-in one-request Gemini PDF/Q19 trial with local key, bounds and error handling. |
-| `backend/tests/gemini-trial.test.cjs` | Mocked PDF transport, key content, bounds, uncertainty, incomplete response and billing error checks. |
-| `docs/ccp8/gemini-trial.md` | Local credential setup, trial commands, limits and API references. |
-
-| `backend/scripts/gemini-all.cjs` | One-request full-sheet Gemini trial, strict criterion validation, missing/uncertain results and code-calculated totals/choices. |
-| `backend/tests/gemini-all.test.cjs` | Mock full-sheet transport, fixed totals, choices, uncertainty, invalid marks and no-retry failures. |
-
-| `backend/lib/gemini.cjs` | Shared full-PDF Gemini request, strict result validation and fixed scoring/choices for CLI and web. |
-| `backend/lib/gemini.d.cts` | Typed boundary for the shared CommonJS engine. |
-| `backend/src/services/geminiService.ts` | Provider configuration and approved-rubric web adapter; maps nullable results and usage. |
-| `backend/tests/gemini-integration.test.cjs` | HTTP workflow with local Gemini stub: locked edits, PDF transport, missing/unclear evidence and quota batch stop. |
+- Change grading prompts, question IDs or marks in `backend/lib/gemini.cjs`; update shared-engine tests and API contracts.
+- Change key format in `textKeyService.ts` and `docs/ccp8/text-key.md`; preserve teacher-approved edits.
+- Change API/job behavior in controller/routes/jobStore and `api.md`; keep frontend polling/types aligned.
+- Change result presentation in ScoreCard/QuestionResult and `pages.md`; never render unresolved marks as zero.
+- Keep optional diagnostic CLI scripts separate from the production request path.

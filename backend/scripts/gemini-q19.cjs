@@ -1,4 +1,4 @@
-// Manual, opt-in cloud trial. The application still uses Ollama.
+// Optional Q19-only diagnostic. The web app uses the shared full-sheet Gemini engine.
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const {parseTextKey} = require('../dist/services/textKeyService');

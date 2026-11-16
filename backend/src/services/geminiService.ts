@@ -3,16 +3,9 @@ import { evaluatePdf } from '../../lib/gemini.cjs';
 import { FinalEvaluation, Rubric } from '../types/evaluation';
 import { validateRubric } from '../utils/rubric';
 
-export function evaluationProvider(): 'gemini' | 'ollama' {
-  const provider = process.env.EVALUATION_PROVIDER || 'gemini';
-  if (provider !== 'gemini' && provider !== 'ollama') throw new Error('EVALUATION_PROVIDER must be gemini or ollama.');
-  return provider;
-}
-export function checkProviderConfiguration() {
-  const provider = evaluationProvider();
-  if (provider === 'gemini' && !process.env.GEMINI_API_KEY?.trim())
+export function checkGeminiConfiguration() {
+  if (!process.env.GEMINI_API_KEY?.trim())
     throw new Error('Add GEMINI_API_KEY to backend/.env and restart the backend.');
-  return provider;
 }
 export function shouldStopBatch(error: unknown): boolean {
   return error instanceof Error && ('stopBatch' in error && error.stopBatch === true || error.name === 'TimeoutError');

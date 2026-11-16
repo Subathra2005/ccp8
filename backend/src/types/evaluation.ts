@@ -24,21 +24,9 @@ export interface Rubric {
   choiceGroups: ChoiceGroup[];
   instructions: string;
 }
-export interface PageQuestion {
-  questionId: string;
-  text: string;
-  diagramDescription: string;
-  uncertain: boolean;
-}
-export interface PageEvidence {
-  page: number;
-  text: string;
-  questions: PageQuestion[];
-  warnings: string[];
-}
 export interface CriterionAward {
   id: string;
-  obtainedMarks: number;
+  obtainedMarks: number | null;
   reason: string;
 }
 export interface QuestionEvaluation {
@@ -52,7 +40,7 @@ export interface QuestionEvaluation {
   methodAssessment: string;
   finalAnswerAssessment: string;
   diagramAssessment: string;
-  criteria: (Omit<CriterionAward, "obtainedMarks"> & { obtainedMarks: number | null; description: string; maximumMarks: number })[];
+  criteria: (CriterionAward & { description: string; maximumMarks: number })[];
   sourcePages: number[];
   counted: boolean | null;
   manualReviewRequired: boolean;

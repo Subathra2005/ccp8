@@ -1,22 +1,15 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import FileUpload from "./components/FileUpload";
 import ScoreCard from "./components/ScoreCard";
 import QuestionResult from "./components/QuestionResult";
 import { api, waitForJob } from "./api";
-import type { Rubric, PageEvidence, SheetResult } from "./types/evaluation";
+import type { Rubric, SheetResult } from "./types/evaluation";
 interface Draft {
   sessionId: string;
   rubric: Rubric;
   warnings: string[];
-  evidence: PageEvidence[];
 }
 export default function App() {
-  const [provider, setProvider] = useState<string>("");
-  useEffect(() => {
-    let active = true;
-    api<{provider: string}>("/health").then(data => { if (active) setProvider(data.provider); }).catch(() => {});
-    return () => { active = false; };
-  }, []);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editor, setEditor] = useState("");
   const [locked, setLocked] = useState<Rubric | null>(null);
@@ -102,10 +95,8 @@ export default function App() {
           student with reasons for every mark.
         </p>
         <div className="alert alert-info">
-          {provider === "gemini"
-            ? "Gemini receives each original student PDF and your approved marking scheme. Sheets are evaluated one at a time; your API project quota/billing applies."
-            : provider === "ollama" ? "Local Ollama processing can take several minutes per page on an 8 GB Mac."
-            : "Checking the evaluation provider…"}
+          Gemini receives each original student PDF and your approved marking scheme.
+          Sheets are evaluated one at a time; your API project quota/billing applies.
           {" "}Keep this tab open. Review marks against the handwriting before finalising.
         </div>
         {!draft && (
@@ -212,15 +203,6 @@ export default function App() {
                 nested alternatives must be resolved into complete, equal-mark
                 alternatives before approval.
               </p>
-              <details className="my-3">
-                <summary>Source evidence (TXT key content is in the scheme)</summary>
-                {draft.evidence.map((e) => (
-                  <div key={e.page}>
-                    <h3 className="h6 mt-3">Key page {e.page}</h3>
-                    <pre className="evidence">{e.text}</pre>
-                  </div>
-                ))}
-              </details>
               <div className="form-check my-3">
                 <input
                   id="confirm"
@@ -258,7 +240,6 @@ export default function App() {
             <FileUpload
               label="3. Upload student answer sheets"
               multiple
-              maxPdfMiB={provider === "ollama" ? 20 : 10}
               loading={loading}
               onSubmit={evaluate}
             />

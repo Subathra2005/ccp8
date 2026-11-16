@@ -2,7 +2,7 @@
 
 ## Setup and active flow
 
-Follow README: Node 22.12+, Poppler for PDF validation, and backend-only GEMINI_API_KEY. Gemini is the default; set EVALUATION_PROVIDER=ollama explicitly to use the older local pipeline. No Google SDK dependency is needed.
+Follow README: Node 22.12+, Poppler for PDF validation, and backend-only GEMINI_API_KEY. Gemini is the only provider; no provider selector or fallback remains. No Google SDK dependency is needed.
 
 1. Parse the structured TXT locally and return the draft with warnings.
 2. Teacher edits and approves answers, marks, split-ups and best-N choice policy. Validate and lock a deep copy.
@@ -15,15 +15,11 @@ Follow README: Node 22.12+, Poppler for PDF validation, and backend-only GEMINI_
 
 The prompt preserves the approved flexible policy: valid alternative methods, credit according to error location, no duplicated formula credit, valid Venn diagrams accepted, and full credit for an established correct uncrossed-out solution despite a later redundant copying slip. Model judgment still needs human verification.
 
-## Optional local provider
-
-Only EVALUATION_PROVIDER=ollama calls evaluationService.ts: rendered-image transcription, bounded crop recovery, studentTextService boundary mapping, then per-question visual grading and scoreCalculator totals. This legacy path retains provisional zero/review flags and can be slow on an 8 GB M1. Its detailed transport remains in api.md. Completed OCR is never re-read merely because boundary mapping fails.
-
 ## Scoring invariants
 
 validateRubric enforces unique IDs, finite positive maxima, criterion sums and paper sums. Choice groups must be disjoint, equal-mark complete alternatives; nested, overlapping and unequal choices are rejected. Gemini's shared runtime validator leaves duplicate questions unscored and reports unknown labels, preserving other assessments but withholding the total. It constrains output IDs to the rubric and normalizes only unambiguous numeric-label formatting. Invalid/out-of-bounds criteria are still rejected rather than clamped. Maxima and totals come only from the locked scheme. No rounding to a half-mark grid is imposed; arithmetic sums round to four decimals and percentages to two.
 
-Gemini review flags withhold scores. Do not equate an unflagged response with proven mathematical correctness. Teachers still compare results to original handwriting. Required diagrams and multi-page work are visible to Gemini in the complete PDF, unlike the older first-page-only comparison.
+Gemini review flags withhold scores. Do not equate an unflagged response with proven mathematical correctness. Teachers still compare results to original handwriting. Required diagrams and multi-page work are visible to Gemini in the complete PDF, in a single request.
 
 ## Debugging
 
@@ -41,6 +37,6 @@ Gemini review flags withhold scores. Do not equate an unflagged response with pr
 
 ## Validation evidence and boundaries
 
-Backend npm test builds and runs scoring, parser, transport and HTTP integration checks using local Gemini/Ollama stubs and real Poppler. Gemini tests cover uploaded PDF bytes, teacher edits retained after approval, fixed maxima, null/missing assessments and quota batch stop without key exposure. Tests do not call cloud models or establish handwriting accuracy.
+Backend npm test builds and runs scoring, parser, transport and HTTP integration checks using a local Gemini stub and real Poppler. Gemini tests cover uploaded PDF bytes, teacher edits retained after approval, fixed maxima, null/missing assessments and quota batch stop without key exposure. Tests do not call cloud models or establish handwriting accuracy.
 
 Frontend npm run build and npm run lint validate types/build/rules. The user's full-sheet CLI sample completed in 76.5 seconds with 24 assessments; this is one observed run, not a guaranteed speed/accuracy result. The web adapter reuses that engine, but its cloud behavior must still be checked using the user's private key on their Mac.

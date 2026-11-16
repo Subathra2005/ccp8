@@ -31,7 +31,7 @@ test('Gemini web flow uses locked edits, direct PDFs, null scores and stops on q
  // Only the test child redirects the hard-coded Google endpoint to a local stub.
  const preload=path.join(temporary,'mock.cjs');
  await fs.writeFile(preload,`const original=global.fetch;global.fetch=(url,opts)=>original(url==='https://generativelanguage.googleapis.com/v1beta/interactions'?'http://127.0.0.1:${mock.address().port}/interactions':url,opts);`);
- const child=spawn(process.execPath,['--require',preload,'dist/server.js'],{cwd:path.resolve(__dirname,'..'),env:{...process.env,PORT:String(port),EVALUATION_PROVIDER:'gemini',GEMINI_API_KEY:'test-secret'},stdio:'pipe'});
+ const child=spawn(process.execPath,['--require',preload,'dist/server.js'],{cwd:path.resolve(__dirname,'..'),env:{...process.env,PORT:String(port),GEMINI_API_KEY:'test-secret'},stdio:'pipe'});
  let logs='';child.stderr.on('data',c=>logs+=c);const base=`http://127.0.0.1:${port}/api`;
  async function post(p,body){const r=await fetch(base+p,{method:'POST',body});assert.equal(r.status,202);return r.json();}
  async function poll(id){for(let i=0;i<200;i++){const j=await (await fetch(base+'/jobs/'+id)).json();if(j.status==='completed')return j.data;if(j.status==='failed')throw new Error(j.message);await sleep(25);}throw new Error('Timed out');}
@@ -44,6 +44,7 @@ test('Gemini web flow uses locked edits, direct PDFs, null scores and stops on q
   assert.equal((await fetch(base+`/schemes/${draft.sessionId}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rubric:draft.rubric,confirmed:true})})).status,200);
   async function batch(count=1,bad=false){const f=new FormData();f.append('sessionId',draft.sessionId);for(let i=0;i<count;i++)f.append('answerSheets',new Blob([bad&&i===1?'not pdf':pdf()],{type:'application/pdf'}),`student${i}.pdf`);return poll((await post('/evaluate',f)).jobId);}
   let r=await batch(2,true);assert.equal(calls,1);assert.equal(r.results[0].data.totalMarks,4);assert.equal(r.results[0].data.provider,'gemini');assert.equal(r.results[0].data.usage.total_tokens,100);assert.equal(r.results[1].success,false);
+  const oversized=new FormData();oversized.append('sessionId',draft.sessionId);oversized.append('answerSheets',new Blob([Buffer.alloc(10*1024*1024+1)],{type:'application/pdf'}),'large.pdf');assert.equal((await fetch(base+'/evaluate',{method:'POST',body:oversized})).status,413);
   mode='uncertain';r=await batch();assert.equal(r.results[0].data.totalMarks,null);assert.equal(r.results[0].data.questions[0].criteria[0].obtainedMarks,null);
   mode='missing';r=await batch();assert.equal(r.results[0].data.totalMarks,null);assert.equal(r.results[0].data.questions[0].status,'not_evaluated');
   mode='duplicate';r=await batch();assert.equal(r.results[0].success,true);assert.equal(r.results[0].data.questions[0].obtainedMarks,null);assert.match(r.results[0].data.questions[0].reason,/Duplicate/);

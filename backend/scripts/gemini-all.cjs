@@ -1,4 +1,4 @@
-// Opt-in full-sheet trial; the web application still uses Ollama.
+// Optional full-sheet CLI diagnostic using the same Gemini engine as the web app.
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const {parseTextKey} = require('../dist/services/textKeyService');

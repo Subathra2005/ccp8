@@ -1,40 +1,37 @@
 ---
 name: ccp8-guide
-description: Understand and modify Subathra2005/ccp8, the local handwritten PDF answer evaluator. Use for teacher-key extraction and approval, multiple student sheets, fixed-total criterion scoring, internal choices, Ollama vision, UI, APIs, debugging, and setup on an 8 GB M1 Mac.
+description: Understand and modify Subathra2005/ccp8, the Gemini-only handwritten answer evaluator. Use for TXT keys, teacher approval, PDF batches, marking split-ups, fixed totals, question-ID recovery, APIs, page behavior, setup, debugging and source navigation.
 ---
 
 # CCP8 project guide
 
-Read this entry point before working on CCP8. Describe the current implementation, not the previous text-only evaluator. This guide accompanies the handwritten-PDF batch-evaluation implementation dated 15 November 2026; verify current source before changes.
+Use [Subathra2005/ccp8](https://github.com/Subathra2005/ccp8). This guide describes the Gemini-only cleanup of 16 November 2026. Check the current branch and implementation before editing; do not confuse similarly named CCP repositories.
 
 ## Read the relevant reference
 
-- [API contracts](docs/ccp8/api.md): all inbound/outbound endpoints, payloads, jobs and errors.
-- [Pages](docs/ccp8/pages.md): complete single-page states, teacher approval and result presentation.
-- [Workflow](docs/ccp8/workflow.md): extraction, visual evidence, scoring, choices, cleanup, limits and validation.
-- [Repository map](docs/ccp8/repository-map.md): all tracked files and change navigation.
+- [API contracts](docs/ccp8/api.md): every inbound/outbound endpoint, payload, limit and failure.
+- [Pages](docs/ccp8/pages.md): the single React page, approval state and result display.
+- [Workflow](docs/ccp8/workflow.md): request lifecycle, configuration, tests and limitations.
+- [TXT key and marking policy](docs/ccp8/text-key.md): record format, explicit split-ups and flexible grading rules.
+- [Repository map](docs/ccp8/repository-map.md): every tracked file and change navigation.
+- [CLI trials](docs/ccp8/gemini-trial.md): optional all-question and Q19 diagnostics.
 - [README](README.md): runnable Mac setup and teacher instructions.
 
-## Preserve these invariants
+## Preserve the working design
 
-1. Default to Gemini (`gemini-4-hydrogen`) via geminiService.ts and shared lib/gemini.cjs. Send the actual original PDF plus the immutable teacher-approved rubric in one request per sheet. Never grade from instructions alone or reparse the original key after teacher edits. Keep API keys backend-only. No automatic retries/fallback; stop the remaining batch on quota/auth/billing/access errors or timeout. Ollama is an explicit optional provider; preserve its legacy pipeline when selected.
-2. Parse the TXT key once per session, then require teacher correction/approval of its total, expected answers, split-ups, page references and choices. Treat approval as a required product step. Never infer approval from a successful extraction.
-3. Lock the approved rubric on the backend. Never trust model-provided totals or maximum marks. Sum validated criterion awards in code against the locked maxima and reject inconsistent schemes.
-4. Apply choice groups using best N equal-mark complete alternatives, with stable key-order tie breaking. Require explicit teacher approval of this policy. Reject overlapping, nested or unequal-mark groups; explain the limitation rather than guessing.
-5. Accept alternative mathematically valid methods after checking reasoning and final answers. Preserve criterion-level explanations of credit awarded/deducted and separate method, final-answer and diagram assessments.
-6. Process sheets independently and sequentially, with one global model queue. Show per-sheet failures and provisional question failures instead of inventing scores.
-7. Flag uncertain or missing evidence for teacher review; on the legacy local model also flag diagrams and multi-page comparisons. Gemini failed, unreadable, ambiguous or review-required question/criterion marks are null; withhold the entire total until resolved. The legacy Ollama path still uses provisional zeros. Do not describe a small vision model as an authoritative mathematical verifier.
-8. Keep frontend/backend evaluation types aligned. Update this guide and API docs whenever behavior changes.
+1. Use only `gemini-4-hydrogen`. Send each original handwritten PDF and the immutable teacher-approved rubric in one request. Do not reintroduce an OCR/transcription pipeline or a local-model fallback. Use `backend/lib/gemini.cjs` for shared web/CLI transport, runtime validation and scoring; use `geminiService.ts` for the web adapter.
+2. Parse structured UTF-8 TXT keys locally. Require teacher approval after edits to answers, maxima, criteria and choices. Never reparse the original key during grading and thereby lose approved edits.
+3. Keep `GEMINI_API_KEY` only in backend `.env`. Do not log it, expose it in frontend variables, request it in chat, or commit student documents/results. Use `store:false` without claiming that it disables all provider processing. Explain that API quota/billing belongs to the selected key's project.
+4. Lock all maxima to the key. Validate finite bounded criterion awards and compute question/paper sums in code. Preserve fractional marks. Do not rescale the denominator or trust a model total.
+5. Constrain model question IDs to the rubric. Normalize only unambiguous plain numeric formatting (`Q19` / `19`). During model-result ID recovery, never merge subparts or OR alternatives (TXT parsing separately groups explicit subpart records into criteria). Leave duplicates unscored, report unknown IDs, preserve valid assessments and withhold the paper total on any unresolved mapping.
+6. Keep unreadable, missing, ambiguous or review-required question/criterion marks null. Only genuinely unanswered work earns zero for absence. Withhold total and percentage until every assessment is resolved. Present “Not scored” and “Pending review”; never display null as zero.
+7. Support disjoint equal-mark best-N choices with stable key-order ties. Require teacher acceptance. Reject nested, overlapping or unequal alternatives. Do not choose among unresolved alternatives.
+8. Preserve explicit split-ups and the approved flexible policy: accept valid alternate methods and correctly filled Venn diagrams; require working where appropriate; award partial credit according to where an error occurred; avoid double-crediting formulas or repeatedly penalizing follow-through. A valid complete uncrossed-out solution may earn full credit despite a later redundant copying slip.
+9. Process sheets sequentially in the global queue. Do not retry model calls automatically. Quota/auth/billing/access errors and timeouts stop remaining requests while retaining completed results. Keep invalid PDFs as independent per-file failures.
+10. Keep backend/frontend evaluation types aligned. Update these references after behavior changes. Run backend tests and frontend build/lint; distinguish mocked checks from live accuracy/speed observations.
 
-Read [TXT format and marking policy](docs/ccp8/text-key.md). Key PDFs are no longer accepted. `textKeyService.ts` groups subparts, preserves source split-ups and supplies the agreed flexible policy. No key images are sent during grading. Legacy key extraction helpers are not on the upload path.
+## Architecture and boundaries
 
-## Architecture
+Use React/TypeScript/Vite/Bootstrap, Express/TypeScript/Multer, native fetch and Poppler `pdfinfo` only for PDF validation. There is one page and no database, accounts, durable history, manual score-edit/save API, PDF annotation or automatic resume. Sessions/jobs expire after two idle hours; student uploads are removed after processing. Keep Node 22.12+ compatibility.
 
-Use React/TypeScript/Vite/Bootstrap in frontend and Express/TypeScript/Multer/Poppler/native fetch in backend. There is one app page; no database, accounts or durable history. Default model integration is Gemini `POST /v1beta/interactions`; optional Ollama uses `POST /api/chat`. Run Node 22.12+ and Poppler; see README for package commands. Environment variables are read at request time for model settings.
-
-## Work carefully
-
-Trace TXT key upload → direct parsing → rubric draft → validation/approval → student batch → original PDF + locked rubric → validated criterion awards → fixed scoring → UI. Read current AGENTS.md and relevant source files. Run backend tests plus frontend build/lint for changes affecting this flow. Report which checks used a stub versus a live model. Never claim end-to-end handwriting accuracy or M1 speed without a live hardware test.
-
-
-Optional Ollama only — student mapping correction: image crop retries apply only to incomplete vision transcription. Completed text is mapped via `studentTextService.ts` (600 output tokens, no retry, bounded chunks). Invalid/truncated mappings retain complete unassigned text in result warnings for teacher review instead of aborting the sheet. This avoids regenerating all student work as JSON. Live model speed and mapping accuracy still need hardware testing.
+Trace TXT upload → parser → editable draft → approval/lock → original PDF + locked rubric → strict result validation and code scoring → nullable web results. A complete model response is still a proposed grade, not proof of handwriting or mathematical correctness. The user's 76.5-second full-sheet trial is a single observation, not a latency guarantee.
